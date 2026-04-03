@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 const mongodburl = process.env.MONGODB_URL
 
 
@@ -15,6 +16,9 @@ export const connectDB = async () => {
 
     if(cached.conn){
         return cached.conn
+    }
+    if(!cached.promise){
+        cached.promise = mongoose.connect(mongodburl).then((mongoose)=>mongoose.connection)
     }
     try{
         const conn = await cached.promise

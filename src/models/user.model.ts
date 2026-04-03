@@ -5,6 +5,7 @@ interface Iuser extends Document {
     password: string;
     createdAt: Date;
     updatedAt: Date;
+    role: "user" | "partner" | "admin";
 
 }
 
@@ -22,6 +23,11 @@ const userschema = new mongoose.Schema<Iuser>({
         type: String,
         required: true
     },
+    role: {
+        type: String,
+        enum: ["user", "partner", "admin"],
+        default: "user"
+    }
     
 }, { timestamps: true })
 
