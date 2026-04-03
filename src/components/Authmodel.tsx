@@ -60,58 +60,75 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                             <div className="h-px flex-1 bg-black/10" />
                         </div>
 
-                        {/* Welcome back */}
-                        <h2 className="text-xl font-black tracking-tight mb-8 text-black">Welcome back</h2>
+                        {/* Dynamic Content Based on Step */}
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={step}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                {/* Title */}
+                                <h2 className="text-xl font-black tracking-tight mb-8 text-black">
+                                    {step === "login" ? "Welcome back" : "Create account"}
+                                </h2>
 
-                        {/* Form */}
-                        <div className="space-y-3">
-                            <div className="relative group">
-                                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
-                                <input
-                                    type="email"
-                                    placeholder="Email"
-                                    className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
-                                />
-                            </div>
-                            <div className="relative group">
-                                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
-                                <input
-                                    type="password"
-                                    placeholder="Password"
-                                    className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
-                                />
-                            </div>
-                        </div>
+                                {/* Form */}
+                                <div className="space-y-3">
+                                    {step === "signup" && (
+                                        <div className="relative group">
+                                            <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
+                                            <input
+                                                type="text"
+                                                placeholder="Full Name"
+                                                className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="relative group">
+                                        <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
+                                        <input
+                                            type="email"
+                                            placeholder="Email"
+                                            className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
+                                        />
+                                    </div>
+                                    <div className="relative group">
+                                        <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
+                                        <input
+                                            type="password"
+                                            placeholder="Password"
+                                            className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
+                                        />
+                                    </div>
+                                </div>
 
-                        {/* Login Button */}
-                        <button className="w-full bg-black text-white rounded-none py-5 text-sm font-black uppercase tracking-[0.2em] mt-8 hover:bg-black/90 transition-all shadow-xl shadow-black/20 active:scale-[0.98]">
-                            Login
-                        </button>
+                                {/* Action Button */}
+                                <button className="w-full bg-black text-white rounded-none py-5 text-sm font-black uppercase tracking-[0.2em] mt-8 hover:bg-black/90 transition-all shadow-xl shadow-black/20 active:scale-[0.98]">
+                                    {step === "login" ? "Login" : "Sign Up"}
+                                </button>
+                            </motion.div>
+                        </AnimatePresence>
 
-                        {/* Footer */}
+                        {/* Footer Content Based on Step */}
                         <div className="text-center mt-10">
-                            <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">
-                                Don't have an account? <span className="text-black cursor-pointer hover:underline">Sign Up</span>
-                            </p>
-   <div>
-
-
-
-                            {step=="login" (
-                                <motion.div
-                                initial={{opacity:0,y:20}}
-                                 animate={{opacity:1,y:0}}
-                               
-                                 
-                                >
-                                    <motion.h2>Welcome back</motion.h2>
-                                    <motion.p>Login to your account</motion.p>
-
-                                </motion.div>
-                            )
-                                }
-
-   </div>
+                            {step === "login" && (
+                                <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">
+                                    Don't have an account? <span 
+                                        onClick={() => setstep("signup")}
+                                        className="text-black cursor-pointer hover:underline"
+                                    >Sign Up</span>
+                                </p>
+                            )}
+                            {step === "signup" && (
+                                <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">
+                                    Already have an account? <span 
+                                        onClick={() => setstep("login")}
+                                        className="text-black cursor-pointer hover:underline"
+                                    >Login</span>
+                                </p>
+                            )}
                         </div>
                     </motion.div>
                 </div>

@@ -7,6 +7,7 @@ import Authmodel from './Authmodel'
 function PublicHome({ setAuthOpen }: { setAuthOpen: (open: boolean) => void }) {
     return (
         <>
+        
             <Herosection onBookNow={() => setAuthOpen(true)} />
             <Vechile_slider />
         </>
