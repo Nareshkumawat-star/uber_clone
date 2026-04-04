@@ -2,9 +2,80 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Mail, Lock, X } from 'lucide-react'
+import axios from 'axios'
+import { signIn, useSession } from 'next-auth/react'
 type steptype = "login" | "signup" | "otp"
 function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
     const [step, setstep] = useState<steptype>("login")
+    const [email, setemail] = useState("")
+    const [password, setpassword] = useState("")
+    const [name, setname] = useState("")
+    const [loading, setloading] = useState(false)
+    const [error, seterror] = useState("")
+    const [otp , setotp] = useState(["","","","","",""])
+ const data = useSession()
+ console.log(data)
+    const sendOtp = async () => {
+        setloading(true)
+        seterror("")
+        try {
+            const { data } = await axios.post("/api/auth/send-otp", { email })
+            console.log(data)
+            setstep("otp")
+        } catch (err: any) {
+            seterror(err.response?.data?.message || "Failed to send OTP")
+        } finally {
+            setloading(false)
+        }
+    }
+
+    const handleVerifyOtp = async () => {
+        setloading(true)
+        seterror("")
+        try {
+            const code = otp.join("")
+            const { data } = await axios.post("/api/auth/register", {
+                name, email, password, code
+            })
+            console.log(data)
+            setstep("login")
+            seterror("")
+            // Maybe show a success message?
+        } catch (err: any) {
+            seterror(err.response?.data?.message || "Invalid or expired OTP")
+        } finally {
+            setloading(false)
+        }
+    }
+
+    const handlesignup = async () => {
+        // Now handlesignup just sends OTP
+        await sendOtp()
+    }
+    const handlelogin = async () => {
+        setloading(true)
+        seterror("")
+        try {
+            const res = await signIn("credentials", {
+                email,
+                password,
+                redirect: false
+            })
+            console.log("Login Result:", res)
+            if (res?.error) {
+                seterror(res.error)
+            } else {
+                onclose() // Close modal on success
+            }
+        } catch (err: any) {
+            seterror("An unexpected error occurred")
+        } finally {
+            setloading(false)
+        }
+    }
+    const handlgoogle = async () => {
+        await signIn("google")
+    }
     return (
         <AnimatePresence>
             {open && (
@@ -43,7 +114,7 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                         </div>
 
                         {/* Google Login */}
-                        <button className="w-full bg-white border border-black/10 rounded-none py-4 flex items-center justify-center gap-3 hover:bg-black/5 transition-all mb-8 group shadow-sm">
+                        <button className="w-full bg-white border border-black/10 rounded-none py-4 flex items-center justify-center gap-3 hover:bg-black/5 transition-all mb-8 group shadow-sm" onClick={handlgoogle}>
                             <svg className="w-4 h-4" viewBox="0 0 24 24">
                                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -83,7 +154,7 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                                                 type="text"
                                                 placeholder="Full Name"
                                                 className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
-                                            />
+                                                onChange={(e)=>setname(e.target.value)} value={name} />
                                         </div>
                                     )}
                                     <div className="relative group">
@@ -92,7 +163,7 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                                             type="email"
                                             placeholder="Email"
                                             className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
-                                        />
+                                       onChange={(e)=>setemail(e.target.value)} value={email} />
                                     </div>
                                     <div className="relative group">
                                         <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
@@ -100,14 +171,48 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                                             type="password"
                                             placeholder="Password"
                                             className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
-                                        />
+                                       onChange={(e)=>setpassword(e.target.value)} value={password} />
                                     </div>
                                 </div>
 
+                                {error && (
+                                    <p className="text-red-500 text-[10px] font-bold uppercase mt-4 text-center">{error}</p>
+                                )}
+
                                 {/* Action Button */}
-                                <button className="w-full bg-black text-white rounded-none py-5 text-sm font-black uppercase tracking-[0.2em] mt-8 hover:bg-black/90 transition-all shadow-xl shadow-black/20 active:scale-[0.98]">
-                                    {step === "login" ? "Login" : "Sign Up"}
-                                </button>
+                                {(() => {
+                                    const isSignupValid = name.trim() !== "" && email.trim() !== "" && password.length >= 6;
+                                    const isLoginValid = email.trim() !== "" && password.trim() !== "";
+                                    const isOtpValid = otp.every(digit => digit !== "");
+                                    const isValid = step === "signup" ? isSignupValid : (step === "login" ? isLoginValid : isOtpValid);
+
+                                    return (
+                                        <motion.button
+                                            disabled={loading || !isValid}
+                                            initial={false}
+                                            animate={{ 
+                                                boxShadow: isValid && !loading ? "0 0 30px rgba(0,0,0,0.15)" : "0 0 0px rgba(0,0,0,0)",
+                                                scale: isValid && !loading ? 1.02 : 1,
+                                                backgroundColor: isValid && !loading ? "#000" : "rgba(0,0,0,0)",
+                                                color: isValid && !loading ? "#fff" : "#00000040",
+                                                borderColor: isValid && !loading ? "#000" : "#00000010"
+                                            }}
+                                            whileHover={isValid && !loading ? { scale: 1.03 } : {}}
+                                            whileTap={isValid && !loading ? { scale: 0.98 } : {}}
+                                            onClick={() => {
+                                                if (step === "signup") {
+                                                    handlesignup();
+                                                } else if (step === "login") {
+                                                    handlelogin();
+                                                } else if (step === "otp") {
+                                                    handleVerifyOtp();
+                                                }
+                                            }}
+                                            className="w-full border-2 rounded-none py-5 text-sm font-black uppercase tracking-[0.2em] mt-8 transition-all disabled:cursor-not-allowed">
+                                            {loading ? "Processing..." : (step === "login" ? "Login" : (step === "signup" ? "Sign Up" : "Verify OTP"))}
+                                        </motion.button>
+                                    );
+                                })()}
                             </motion.div>
                         </AnimatePresence>
 
@@ -128,6 +233,51 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                                         className="text-black cursor-pointer hover:underline"
                                     >Login</span>
                                 </p>
+                            )}
+                            {step === "otp" && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mt-6"
+                                >
+                                    <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest text-center">
+                                        Enter the 6-digit code sent to your email
+                                    </p>
+                                    <div className="flex justify-center gap-2 mt-4">
+                                        {otp.map((digit, index) => (
+                                            <input
+                                                key={index}
+                                                id={`otp-${index}`}
+                                                type="text"
+                                                maxLength={1}
+                                                value={digit}
+                                                onChange={(e) => {
+                                                    const value = e.target.value;
+                                                    if (/^\d*$/.test(value)) {
+                                                        const newOtp = [...otp];
+                                                        newOtp[index] = value.slice(-1);
+                                                        setotp(newOtp);
+                                                        
+                                                        // Auto-focus next input
+                                                        if (value && index < 5) {
+                                                            document.getElementById(`otp-${index + 1}`)?.focus();
+                                                        }
+                                                    }
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+                                                        document.getElementById(`otp-${index - 1}`)?.focus();
+                                                    }
+                                                }}
+                                                className="w-10 h-12 text-center text-xl font-black border-b-2 border-black/10 focus:border-black focus:outline-none bg-transparent transition-all"
+                                            />
+                                        ))}
+                                    </div>
+                                    <p 
+                                        onClick={sendOtp}
+                                        className="text-[10px] font-bold text-black border-b border-black/10 inline-block mt-6 cursor-pointer hover:border-black transition-all uppercase tracking-widest"
+                                    >Resend Code</p>
+                                </motion.div>
                             )}
                         </div>
                     </motion.div>
