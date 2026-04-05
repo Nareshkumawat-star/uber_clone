@@ -95,19 +95,19 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 40 }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="relative w-full max-w-sm bg-white rounded-none p-12 overflow-hidden shadow-2xl"
+                        className="relative w-full max-w-[90%] md:max-w-sm bg-white rounded-none p-8 md:p-12 overflow-hidden shadow-2xl"
                     >
                         {/* Close Button */}
                         <button
                             onClick={onclose}
-                            className="absolute top-8 right-8 text-black/40 hover:text-black transition-colors"
+                            className="absolute top-6 right-6 md:top-8 md:right-8 text-black/40 hover:text-black transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
 
                         {/* Header */}
                         <div className="text-center mb-10">
-                            <h1 className="text-4xl font-black tracking-tighter uppercase mb-1 text-black">
+                            <h1 className="text-3xl md:text-4xl font-black tracking-tighter uppercase mb-1 text-black">
                                 Go<span className="opacity-20">Ride</span>
                             </h1>
                             <p className="text-black/40 text-[10px] font-bold uppercase tracking-widest">Premium Vehicle Booking</p>
@@ -269,7 +269,7 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                                                         document.getElementById(`otp-${index - 1}`)?.focus();
                                                     }
                                                 }}
-                                                className="w-10 h-12 text-center text-xl font-black border-b-2 border-black/10 focus:border-black focus:outline-none bg-transparent transition-all"
+                                                className="w-8 h-10 md:w-10 md:h-12 text-center text-lg md:text-xl font-black border-b-2 border-black/10 focus:border-black focus:outline-none bg-transparent transition-all"
                                             />
                                         ))}
                                     </div>

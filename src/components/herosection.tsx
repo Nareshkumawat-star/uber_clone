@@ -42,12 +42,12 @@ function Herosection({ onBookNow }: HerosectionProps) {
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 1, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                    className='flex gap-12 mb-16 opacity-40'
+                    className='flex flex-wrap justify-center gap-8 md:gap-12 mb-10 md:mb-16 opacity-40'
                 >
-                    <Bike className='w-8 h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Car className='w-8 h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Bus className='w-8 h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Truck className='w-8 h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Bike className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Car className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Bus className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Truck className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
                 </motion.div>
 
                 {/* Call to Action Button */}
@@ -58,7 +58,7 @@ function Herosection({ onBookNow }: HerosectionProps) {
                     whileTap={{ scale: 0.95 }}
                     transition={{ duration: 0.4, delay: 1, ease: [0.16, 1, 0.3, 1] }}
                     onClick={onBookNow}
-                    className='bg-white text-black px-16 py-5 rounded-full text-xl font-black uppercase tracking-wider hover:bg-white/90 transition-all'
+                    className='bg-white text-black px-10 md:px-16 py-4 md:py-5 rounded-full text-lg md:text-xl font-black uppercase tracking-wider hover:bg-white/90 transition-all'
                 >
                     Book Now
                 </motion.button>

@@ -1,9 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 interface Iuserstate {
-    userdata:number|null
+    userdata: any | null
 }
-const intialstate:Iuserstate = {
+const intialstate: Iuserstate = {
     userdata: null,
 }
 const userSlice = createSlice({
