@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-type vechiletype="bike"|"car"|"loading"|"truck"|"auto"; 
+type vechiletype="bike"|"car"|"loading"|"truck"|"auto"|"suv"|"delivery"; 
 interface ivechile{
     owner:mongoose.Types.ObjectId,
 
@@ -26,7 +26,7 @@ const vechileSchema = new mongoose.Schema({
       },
       vechileType:{
         type:String,
-        enum:["bike","car","loading","truck","auto"],
+        enum:["bike","car","loading","truck","auto","suv","delivery"],
         required:true
       },
       vechileModel:{

@@ -41,7 +41,9 @@ const PartnerbankSchema = new mongoose.Schema<iPartnerbank>({
         required:true,
        uppercase:true
     },
-   
+    upi: {
+        type: String,
+    },
     status: {
         type: String,
         enum: ["notadded", "added", "verified"],

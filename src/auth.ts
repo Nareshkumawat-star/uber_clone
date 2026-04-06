@@ -50,20 +50,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     ],
     callbacks: {
         async signIn({ user, account }) {
-            if (account?.provider === "google") {
-                await connectDB()
-                const existingUser = await User.findOne({ email: user.email })
-                if (!existingUser) {
-                    await User.create({
-                        name: user.name,
-                        email: user.email,
-
-                    })
+            try {
+                if (account?.provider === "google") {
+                    await connectDB()
+                    let dbUser = await User.findOne({ email: user.email })
+                    if (!dbUser) {
+                        dbUser = await User.create({
+                            name: user.name,
+                            email: user.email,
+                        })
+                    }
+                    user.id = dbUser._id.toString()
+                    user.role = dbUser.role
                 }
-                user.id = existingUser._id.toString()
-                user.role = existingUser.role
+                return true
+            } catch (error: any) {
+                console.error("SignIn Callback Error:", error.message)
+                return false
             }
-            return true
         },
         async jwt({ token, user }) {
             if (user) {
@@ -83,10 +87,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
             return session
         }
-    },
-    pages: {
-        signIn: "/login",
-        error: "/login"
     },
     session: {
         strategy: "jwt",

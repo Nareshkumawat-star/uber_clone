@@ -111,7 +111,7 @@ function Navbar({ onLogin }: { onLogin?: () => void }) {
 
                                                 {/* Become a Partner Section */}
                                                 {userdata.role !== "partner" && (
-                                                    <button className='w-full bg-[#F3F3F3] hover:bg-[#EAEAEA] transition-colors rounded-[1rem] p-3 flex items-center justify-between group'  onClick={()=>router.push("partner/onboarding/vehicle")}>
+                                                    <button className='w-full bg-[#F3F3F3] hover:bg-[#EAEAEA] transition-colors rounded-[1rem] p-3 flex items-center justify-between group'  onClick={()=>router.push("/partner/onboarding/vehicle")}>
                                                         <div className='flex items-center gap-2'>
                                                             {/* Overlapping Icons */}
                                                             <div className='flex -space-x-3'>

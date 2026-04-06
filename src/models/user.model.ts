@@ -6,6 +6,8 @@ interface Iuser extends Document {
     createdAt: Date;
     updatedAt: Date;
     role: "user" | "partner" | "admin";
+    partneronbaordingsteps:number;
+    mobileNumber?: string
 
 }
 
@@ -21,12 +23,22 @@ const userschema = new mongoose.Schema<Iuser>({
     },
     password: {
         type: String,
-        required: true
     },
     role: {
         type: String,
         enum: ["user", "partner", "admin"],
-        default: "user"
+        default: "partner"
+    },
+    partneronbaordingsteps:{
+        type:Number,
+        min:0,
+        max:8,
+        default:0
+    },
+    mobileNumber:{
+        type:String,
+        unique:true,
+        sparse:true
     }
     
 }, { timestamps: true })
