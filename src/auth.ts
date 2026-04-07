@@ -1,6 +1,6 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import connectDB from "@/lif/db"
+import connectDB from "@/lib/db"
 import User from "@/models/user.model"
 import bcrypt from "bcryptjs"
 import { JWT } from "next-auth/jwt"

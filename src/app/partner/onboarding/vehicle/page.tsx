@@ -40,23 +40,40 @@ export default function VehicleOnboardingPage() {
     fetchVehicleData()
   }, [])
 
+  // Indian Vehicle Number Regex (e.g., MH 12 AB 1234)
+  const vehicleRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$/
+
   const handleContinue = async () => {
-    if (vehicleNumber && vehicleModel && selectedType) {
-      setError(null)
-      try {
-        const res = await axios.post('/api/partner/onboard/vechile', {
-          vechileType: selectedType,
-          vechileModel: vehicleModel,
-          vechileNumber: vehicleNumber
-        });
-        
-        if (res.status === 201 || res.status === 200) {
-          router.push('/partner/onboarding/Documents')
-        }
-      } catch (err: any) {
-        const errorMsg = err.response?.data?.error || err.message;
-        setError(errorMsg)
+    // Basic validation
+    if (!selectedType) {
+      setError("Please select a vehicle type")
+      return
+    }
+    if (!vehicleModel || vehicleModel.trim().length < 3) {
+      setError("Please enter a valid vehicle model")
+      return
+    }
+    
+    const cleanNumber = vehicleNumber.replace(/\s/g, '').toUpperCase()
+    if (!vehicleRegex.test(cleanNumber)) {
+      setError("Invalid Vehicle Number format (e.g. MH 12 AB 1234)")
+      return
+    }
+
+    setError(null)
+    try {
+      const res = await axios.post('/api/partner/onboard/vechile', {
+        vechileType: selectedType,
+        vechileModel: vehicleModel.trim(),
+        vechileNumber: cleanNumber
+      });
+      
+      if (res.status === 201 || res.status === 200) {
+        router.push('/partner/onboarding/Documents')
       }
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.message;
+      setError(errorMsg)
     }
   }
 
@@ -159,9 +176,16 @@ export default function VehicleOnboardingPage() {
           {/* Vehicle Details Inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                Vehicle Number
-              </label>
+              <div className="flex justify-between items-center px-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ">
+                  Vehicle Number
+                </label>
+                {vehicleNumber.replace(/\s/g, '').length > 0 && vehicleNumber.replace(/\s/g, '').length < 10 && (
+                  <span className="text-[8px] font-bold text-red-500 uppercase animate-pulse">
+                    10 CHARS REQUIRED
+                  </span>
+                )}
+              </div>
               <div className="relative group">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-black transition-colors">
                   <span className="text-xs font-bold font-mono">#</span>
@@ -170,28 +194,46 @@ export default function VehicleOnboardingPage() {
                   type="text" 
                   value={vehicleNumber}
                   onChange={(e) => {
-                    setVehicleNumber(e.target.value.toUpperCase())
+                    const rawVal = e.target.value.toUpperCase().replace(/\s/g, '')
+                    let filtered = ""
+                    
+                    for (let i = 0; i < rawVal.length; i++) {
+                      const char = rawVal[i]
+                      if (i === 0 || i === 1 || i === 4 || i === 5) {
+                        if (/[A-Z]/.test(char)) filtered += char
+                      } else {
+                        if (/[0-9]/.test(char)) filtered += char
+                      }
+                      if (filtered.length >= 10) break
+                    }
+
+                    let formatted = ""
+                    if (filtered.length > 0) formatted += filtered.slice(0, 2)
+                    if (filtered.length > 2) formatted += " " + filtered.slice(2, 4)
+                    if (filtered.length > 4) formatted += " " + filtered.slice(4, 6)
+                    if (filtered.length > 6) formatted += " " + filtered.slice(6, 10)
+                    
+                    setVehicleNumber(formatted.trim())
                     if (error) setError(null)
                   }}
+                  maxLength={13}
                   placeholder="e.g. MH 12 AB 1234"
-                  className={`w-full bg-gray-50 border ${error ? 'border-red-500/50' : 'border-transparent'} focus:border-black/10 focus:bg-white rounded-2xl py-4 pl-12 pr-6 text-xs font-bold transition-all outline-none text-black placeholder:text-gray-300`}
+                  className={`w-full bg-gray-50 border ${error?.includes('Number') ? 'border-red-500/50' : 'border-transparent'} focus:border-black/10 focus:bg-white rounded-2xl py-4 pl-12 pr-6 text-xs font-bold transition-all outline-none text-black placeholder:text-gray-300`}
                 />
               </div>
-              {error && (
-                <motion.p 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-[9px] font-bold text-red-500 ml-1 mt-1"
-                >
-                  {error}
-                </motion.p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                Vehicle Model
-              </label>
+              <div className="flex justify-between items-center px-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ">
+                  Vehicle Model
+                </label>
+                {vehicleModel.length > 0 && vehicleModel.length < 3 && (
+                  <span className="text-[8px] font-bold text-red-500 uppercase animate-pulse">
+                    3+ CHARS REQUIRED
+                  </span>
+                )}
+              </div>
               <div className="relative group">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-black transition-colors">
                   <Car size={16} />
@@ -199,14 +241,36 @@ export default function VehicleOnboardingPage() {
                 <input 
                   type="text" 
                   value={vehicleModel}
-                  onChange={(e) => setVehicleModel(e.target.value)}
-                  placeholder="e.g. Honda Activa 6G"
-                  className="w-full bg-gray-50 border border-transparent focus:border-black/10 focus:bg-white rounded-2xl py-4 pl-12 pr-6 text-xs font-bold transition-all outline-none text-black placeholder:text-gray-300"
+                  onChange={(e) => {
+                    let val = e.target.value.toUpperCase()
+                    val = val.replace(/[^A-Z0-9\s]/g, '')
+                    setVehicleModel(val)
+                    if (error?.includes('model')) setError(null)
+                  }}
+                  placeholder="e.g. HONDA ACTIVA 6G"
+                  className={`w-full bg-gray-50 border ${error?.includes('model') ? 'border-red-500/50' : 'border-transparent'} focus:border-black/10 focus:bg-white rounded-2xl py-4 pl-12 pr-6 text-xs font-bold transition-all outline-none text-black placeholder:text-gray-300 uppercase`}
                 />
               </div>
             </div>
           </div>
+
+
+
+          {/* Error Message Display */}
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3"
+            >
+              <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-white text-[10px] font-bold">!</div>
+              <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider">
+                {error}
+              </p>
+            </motion.div>
+          )}
         </div>
+
 
         {/* Continue Button */}
         <div className="mt-12 flex justify-center">

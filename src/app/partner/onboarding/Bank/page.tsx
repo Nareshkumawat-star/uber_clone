@@ -43,10 +43,46 @@ export default function BankSetupPage() {
   }, [])
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    let formattedValue = value.toUpperCase() // Force uppercase for all fields
+
+    // Real-time filtering based on field type
+    if (field === 'accountNumber' || field === 'mobileNumber') {
+      // Allow only digits
+      formattedValue = formattedValue.replace(/\D/g, '')
+      if (field === 'mobileNumber') formattedValue = formattedValue.slice(0, 10)
+      if (field === 'accountNumber') formattedValue = formattedValue.slice(0, 18) // Standard bank account max
+    }
+    
+    if (field === 'bankName' || field === 'accountName') {
+      // Allow only letters and spaces
+      formattedValue = formattedValue.replace(/[^A-Z\s]/g, '')
+    }
+
+    if (field === 'ifscCode') {
+      // Alphanumeric only, max 11
+      formattedValue = formattedValue.replace(/[^A-Z0-9]/g, '').slice(0, 11)
+    }
+
+    if (field === 'upiId') {
+      // Alphanumeric, @, and dots
+      formattedValue = formattedValue.replace(/[^A-Z0-9@.-]/g, '')
+    }
+
+    setFormData(prev => ({ ...prev, [field]: formattedValue }))
   }
 
-  const isFormValid = formData.accountName && formData.accountNumber && formData.ifscCode && formData.mobileNumber.length === 10 && formData.bankName
+  // Validation Regex
+  const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/
+  const upiRegex = /^[\w.-]+@[\w.-]+$/
+
+  const isFormValid = 
+    formData.accountName.trim().length >= 6 && 
+    formData.accountNumber.length >= 9 && 
+    ifscRegex.test(formData.ifscCode) && 
+    formData.mobileNumber.length === 10 && 
+    formData.bankName.trim().length >= 3 &&
+    (!formData.upiId || upiRegex.test(formData.upiId)) // UPI is optional but must be valid if entered
+
 
   if (isLoading) {
     return (
@@ -92,26 +128,49 @@ export default function BankSetupPage() {
             { id: 'ifscCode', label: 'IFSC code', placeholder: 'e.g. HDFC0001234', icon: Building2 },
             { id: 'mobileNumber', label: 'Mobile number', placeholder: '10 digit mobile number', icon: Smartphone },
             { id: 'upiId', label: 'UPI ID (optional)', placeholder: 'name@upi', icon: Zap },
-          ].map((field) => (
-            <div key={field.id} className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                {field.label}
-              </label>
-              <div className="relative group border-b border-gray-100 focus-within:border-black transition-colors pb-1">
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-black transition-colors">
-                  <field.icon size={18} />
+          ].map((field) => {
+            const val = formData[field.id as keyof typeof formData]
+            let errorMessage = ""
+            
+            if (val) {
+              if (field.id === 'ifscCode' && !ifscRegex.test(val)) errorMessage = "INVALID IFSC"
+              if (field.id === 'upiId' && !upiRegex.test(val)) errorMessage = "INVALID UPI"
+              if (field.id === 'mobileNumber' && val.length < 10) errorMessage = "10 DIGITS REQUIRED"
+              if (field.id === 'accountName' && val.length < 6) errorMessage = "6 CHARACTERS REQUIRED"
+              if (field.id === 'accountNumber' && val.length < 9) errorMessage = "MIN 9 DIGITS"
+              if (field.id === 'bankName' && val.length < 3) errorMessage = "3 CHARACTERS REQUIRED"
+            }
+
+            return (
+              <div key={field.id} className="space-y-1.5">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ">
+                    {field.label}
+                  </label>
+                  {errorMessage && (
+                    <span className="text-[8px] font-bold text-red-500 uppercase tracking-tighter animate-pulse">
+                      {errorMessage}
+                    </span>
+                  )}
                 </div>
-                <input 
-                  type="text" 
-                  value={formData[field.id as keyof typeof formData]}
-                  onChange={(e) => handleInputChange(field.id, e.target.value)}
-                  placeholder={field.placeholder}
-                  className="w-full bg-transparent py-4 pl-8 pr-4 text-xs font-bold transition-all outline-none text-black placeholder:text-gray-200"
-                />
+                <div className={`relative group border-b transition-colors pb-1 ${errorMessage ? 'border-red-500/50' : 'border-gray-100 focus-within:border-black'}`}>
+                  <div className={`absolute left-0 top-1/2 -translate-y-1/2 transition-colors ${errorMessage ? 'text-red-400' : 'text-gray-300 group-focus-within:text-black'}`}>
+                    <field.icon size={18} />
+                  </div>
+
+                  <input 
+                    type="text" 
+                    value={val}
+                    onChange={(e) => handleInputChange(field.id, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="w-full bg-transparent py-4 pl-8 pr-4 text-xs font-bold transition-all outline-none text-black placeholder:text-gray-200"
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
+
 
         {/* Verification Note */}
         <div className="flex items-start gap-3 px-2 mb-10">

@@ -1,19 +1,13 @@
-'use client'
-import React, { useState } from 'react'
-import Navbar from "@/components/navbar";
-import Footer from "@/components/footer";
-import PublicHome from "@/components/PublicHome";
-import Authmodel from "@/components/Authmodel";
+import React from 'react'
+import { auth } from '@/auth';
+import HomeClient from '@/components/HomeClient';
 
-export default function Home() {
-  const [authOpen, setAuthOpen] = useState(false);
+export default async function Home() {
+  const session = await auth();
 
   return (
-    <div className="w-full min-h-screen bg-black">
-      <Navbar onLogin={() => setAuthOpen(true)} />
-      <PublicHome setAuthOpen={setAuthOpen} />
-      <Authmodel open={authOpen} onclose={() => setAuthOpen(false)} />
-      <Footer />
-    </div>
+    <main>
+      <HomeClient session={session} />
+    </main>
   );
 }
