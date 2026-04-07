@@ -1,4 +1,4 @@
-import connectDB from "@/lif/db";
+import connectDB from "@/lib/db";
 import Otp from "@/models/otp.model";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";

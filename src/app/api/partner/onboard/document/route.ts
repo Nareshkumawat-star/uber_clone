@@ -1,9 +1,9 @@
-import { connectDB } from "@/lif/db";
+import { connectDB } from "@/lib/db";
 import { auth } from "@/auth";
 import User from "@/models/user.model";
 import Vechile from "@/models/Vechile.model";
 import { NextResponse } from "next/server";
-import { uploadOncloudinary } from "@/lif/cloudinary";
+import { uploadOncloudinary } from "@/lib/cloudinary";
 import Partnerdocs from "@/models/Partner.docs.model";
 
 export async function POST(req: Request) {

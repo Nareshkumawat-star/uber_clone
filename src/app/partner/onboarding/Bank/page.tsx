@@ -198,7 +198,7 @@ export default function BankSetupPage() {
                 })
 
                 if (res.status === 201 || res.status === 200) {
-                  router.push('/partner/dashboard')
+                  router.push('/')
                 }
               } catch (error) {
                 console.error('Submission failed:', error)

@@ -7,18 +7,25 @@ import Authmodel from "@/components/Authmodel";
 import PartnerDashboard from '@/components/PartnerDashboard';
 import AdminDashboard from '@/components/AdminDashboard';
 
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
+
 export default function HomeClient({ session }: { session: any }) {
   const [authOpen, setAuthOpen] = useState(false);
+  const { userdata } = useSelector((state: RootState) => state.user);
 
-  // If user is session-less, show public home
+  // Use role from Redux (latest from DB via usegetme) or fallback to session
+  const userRole = userdata?.role || session?.user?.role;
+
+  // If user is session-less and no userdata, show public home
   const renderDashboard = () => {
-    if (!session) return <PublicHome setAuthOpen={setAuthOpen} />;
+    if (!session && !userdata) return <PublicHome setAuthOpen={setAuthOpen} />;
     
-    if (session.user.role === 'partner') {
+    if (userRole === 'partner') {
       return <PartnerDashboard />;
     }
     
-    if (session.user.role === 'admin') {
+    if (userRole === 'admin') {
       return <AdminDashboard />;
     }
 

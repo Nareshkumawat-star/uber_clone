@@ -1,4 +1,4 @@
-import { connectDB } from "@/lif/db";
+import { connectDB } from "@/lib/db";
 import { auth } from "@/auth";
 import User from "@/models/user.model";
 import { NextResponse } from "next/server";
@@ -36,6 +36,7 @@ export async function POST(req:Request){
 
         if (user.partneronbaordingsteps < 3) {
             user.partneronbaordingsteps = 3;
+            user.role = "partner"; // Explicitly set role to partner upon completion of last step
         }
         user.mobileNumber = mobileNumber;
         await user.save();
