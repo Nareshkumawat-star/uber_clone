@@ -8,6 +8,8 @@ interface Iuser extends Document {
     role: "user" | "partner" | "admin";
     partneronbaordingsteps:number;
     mobileNumber?: string
+    videoKycStatus: "not_required" |"pending" | "in_progress"| "approved" | "rejected";
+    videokycrejectionreason?:string
 
 }
 
@@ -39,6 +41,14 @@ const userschema = new mongoose.Schema<Iuser>({
         type:String,
         unique:true,
         sparse:true
+    },
+    videoKycStatus:{
+        type:String,
+        enum:["not_required","pending","in_progress","approved","rejected"],
+        default:"not_required"
+    },
+    videokycrejectionreason:{
+        type:String,
     }
     
 }, { timestamps: true })

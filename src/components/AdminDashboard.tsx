@@ -1,6 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import { motion } from 'motion/react'
+import { useRouter } from 'next/navigation'
 import { 
     Users, 
     CheckCircle2, 
@@ -26,47 +27,63 @@ const STAT_CONFIG = [
 
 const TABS = [
     { id: 'partner', label: 'Pending Partner Reviews', icon: Users, badgeKey: 'pending', badgeType: 'error' },
-    { id: 'kyc', label: 'Pending Video KYC', icon: Video, badgeValue: 0, badgeType: 'neutral' },
+    { id: 'kyc', label: 'Pending Video KYC', icon: Video, badgeKey: 'pendingKyc', badgeType: 'error' },
     { id: 'vehicle', label: 'Pending Vehicle Reviews', icon: Car, badgeValue: 0, badgeType: 'neutral' },
 ];
 
 function AdminDashboard() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState('partner');
     const [partners, setPartners] = useState<any[]>([]);
+    const [kycPartners, setKycPartners] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [stats, setStats] = useState({ total: 1, approved: 0, pending: 1, rejected: 0 });
+    const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, pendingKyc: 0 });
 
-    const fetchPartners = async () => {
+    const fetchData = async () => {
         try {
             setIsLoading(true);
-            const res = await axios.get('/api/admin/partners');
-            const data = res.data.partners;
-            setPartners(data);
+            const [partnerRes, kycRes] = await Promise.all([
+                axios.get('/api/admin/partners'),
+                axios.get('/api/admin/videokyc/pendng')
+            ]);
+            const partnerData = partnerRes.data.partners;
+            const kycData = kycRes.data.partners;
+            setPartners(partnerData);
+            setKycPartners(kycData);
             
-            // Calculate real stats
             setStats({
-                total: data.length,
-                approved: data.filter((p: any) => p.partneronbaordingsteps > 3).length,
-                pending: data.filter((p: any) => p.partneronbaordingsteps === 3).length,
-                rejected: 0, // Need rejected logic in model if we want to track it separately
+                total: partnerData.length + kycData.length,
+                approved: 0,
+                pending: partnerData.length,
+                rejected: 0,
+                pendingKyc: kycData.length,
             });
         } catch (error) {
-            console.error("Failed to fetch partners:", error);
+            console.error("Failed to fetch data:", error);
         } finally {
             setIsLoading(false);
         }
     };
 
     React.useEffect(() => {
-        fetchPartners();
+        fetchData();
     }, []);
 
     const handleAction = async (partnerId: string, action: 'approve' | 'reject') => {
         try {
             await axios.patch('/api/admin/partners', { partnerId, action });
-            fetchPartners(); // Refresh after action
+            fetchData();
         } catch (error) {
             console.error(`Failed to ${action} partner:`, error);
+        }
+    };
+
+    const handleKycAction = async (partnerId: string, action: 'approve' | 'reject') => {
+        try {
+            await axios.patch('/api/admin/videokyc/pendng', { partnerId, action });
+            fetchData();
+        } catch (error) {
+            console.error(`Failed to ${action} KYC:`, error);
         }
     };
 
@@ -156,49 +173,104 @@ function AdminDashboard() {
                         <div className="flex items-center justify-center p-20">
                             <Clock className="w-8 h-8 animate-spin text-gray-300" />
                         </div>
-                    ) : partners.length === 0 ? (
+                    ) : activeTab === 'partner' ? (
+                        partners.length === 0 ? (
+                            <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-100">
+                                <div className="max-w-md mx-auto">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Users className="w-8 h-8 text-gray-300" />
+                                    </div>
+                                    <h2 className="text-xl font-bold text-black mb-2">No Pending Reviews</h2>
+                                    <p className="text-gray-400 text-sm">Everything is up to date! Check back later for new pending requests.</p>
+                                </div>
+                            </div>
+                        ) : (
+                            partners.map((partner) => (
+                                <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-black/10 transition-all">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xl font-bold border border-gray-100">
+                                            {partner.name?.charAt(0)}
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <h4 className="font-bold text-black text-lg leading-none">{partner.name}</h4>
+                                            <p className="text-xs text-gray-400 font-medium">{partner.email}</p>
+                                            <div className="flex items-center gap-3 mt-1">
+                                                <span className="bg-gray-50 text-[10px] font-bold text-gray-500 px-2 py-1 rounded-md border border-gray-100 uppercase tracking-wider">
+                                                    {partner.vehicle?.vechileType} • {partner.vehicle?.number}
+                                                </span>
+                                                <span className="bg-blue-50 text-[10px] font-bold text-blue-500 px-2 py-1 rounded-md border border-blue-100 uppercase tracking-wider">
+                                                    Documents Pending
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => router.push(`/admin/vendor/reviews/${partner._id}`)}
+                                            className="px-6 py-2.5 bg-black text-white rounded-xl text-xs font-bold shadow-lg hover:bg-gray-800 transition-all active:scale-95"
+                                        >
+                                            Review
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )
+                    ) : activeTab === 'kyc' ? (
+                        kycPartners.length === 0 ? (
+                            <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-100">
+                                <div className="max-w-md mx-auto">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Video className="w-8 h-8 text-gray-300" />
+                                    </div>
+                                    <h2 className="text-xl font-bold text-black mb-2">No Pending Video KYC</h2>
+                                    <p className="text-gray-400 text-sm">No partners are waiting for video verification.</p>
+                                </div>
+                            </div>
+                        ) : (
+                            kycPartners.map((partner: any) => (
+                                <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:border-black/10 transition-all">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center text-xl font-bold border border-purple-100 text-purple-600">
+                                            {partner.name?.charAt(0)}
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <h4 className="font-bold text-black text-lg leading-none">{partner.name}</h4>
+                                            <p className="text-xs text-gray-400 font-medium">{partner.email}</p>
+                                            <div className="flex items-center gap-3 mt-1">
+                                                <span className="bg-yellow-50 text-[10px] font-bold text-yellow-600 px-2 py-1 rounded-md border border-yellow-100 uppercase tracking-wider">
+                                                    Video KYC Pending
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => router.push(`/videokyc/${partner._id}`)}
+                                            className="px-5 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2"
+                                        >
+                                            <Video className="w-3.5 h-3.5" />
+                                            Start KYC
+                                        </button>
+                                        <button 
+                                            onClick={() => handleKycAction(partner._id, 'reject')}
+                                            className="px-5 py-2.5 bg-white text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-50 transition-all active:scale-95"
+                                        >
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )
+                    ) : (
                         <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-100">
                             <div className="max-w-md mx-auto">
                                 <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                    <Users className="w-8 h-8 text-gray-300" />
+                                    <Car className="w-8 h-8 text-gray-300" />
                                 </div>
-                                <h2 className="text-xl font-bold text-black mb-2">No Pending Reviews</h2>
-                                <p className="text-gray-400 text-sm">Everything is up to date! Check back later for new pending requests.</p>
+                                <h2 className="text-xl font-bold text-black mb-2">No Pending Vehicle Reviews</h2>
+                                <p className="text-gray-400 text-sm">No vehicles waiting for review.</p>
                             </div>
                         </div>
-                    ) : (
-                        partners.map((partner) => (
-                            <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-black/10 transition-all">
-                                <div className="flex items-center gap-6">
-                                    {/* Avatar */}
-                                    <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xl font-bold border border-gray-100">
-                                        {partner.name?.charAt(0)}
-                                    </div>
-                                    
-                                    {/* Details */}
-                                    <div className="flex flex-col gap-1">
-                                        <h4 className="font-bold text-black text-lg leading-none">{partner.name}</h4>
-                                        <p className="text-xs text-gray-400 font-medium">{partner.email}</p>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <span className="bg-gray-50 text-[10px] font-bold text-gray-500 px-2 py-1 rounded-md border border-gray-100 uppercase tracking-wider">
-                                                {partner.vehicle?.vechileType} • {partner.vehicle?.number}
-                                            </span>
-                                            <span className="bg-blue-50 text-[10px] font-bold text-blue-500 px-2 py-1 rounded-md border border-blue-100 uppercase tracking-wider">
-                                                Documents Pending
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button 
-                                        className="px-6 py-2.5 bg-black text-white rounded-xl text-xs font-bold shadow-lg hover:bg-gray-800 transition-all active:scale-95"
-                                    >
-                                        Review
-                                    </button>
-                                </div>
-                            </div>
-                        ))
                     )}
                 </div>
             </main>

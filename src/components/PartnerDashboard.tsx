@@ -132,34 +132,70 @@ function PartnerDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-20">
                     <div className="p-8 bg-gray-50 rounded-2xl border border-gray-100 hover:border-black/5 transition-all">
                         <h3 className="font-bold text-xl mb-3 text-black">Account Status</h3>
-                        <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                            You have successfully submitted your primary information. Our team is currently reviewing your application.
-                        </p>
-                        <div className="flex items-center gap-2 text-black font-semibold text-sm">
-                            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                            Review Pending
-                        </div>
+                        {activesteps === 4 ? (
+                            <>
+                                <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                    Your documents have been approved! Please complete the Video KYC to proceed to the next step.
+                                </p>
+                                <div className="flex items-center gap-2 text-black font-semibold text-sm">
+                                    <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                                    Video KYC Pending
+                                </div>
+                            </>
+                        ) : activesteps >= 5 ? (
+                            <>
+                                <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                    Video KYC has been completed. Continue with the remaining steps.
+                                </p>
+                                <div className="flex items-center gap-2 text-black font-semibold text-sm">
+                                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                                    KYC Approved
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                    You have successfully submitted your primary information. Our team is currently reviewing your application.
+                                </p>
+                                <div className="flex items-center gap-2 text-black font-semibold text-sm">
+                                    <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                                    Review Pending
+                                </div>
+                            </>
+                        )}
                     </div>
                     <motion.div 
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => {
-                            const nextStep = STEPS[activesteps];
-                            if (nextStep?.route) {
-                                router.push(nextStep.route)
+                            if (activesteps === 4 && userdata?._id) {
+                                router.push(`/videokyc/${userdata._id}`)
                             } else {
-                                // Default or informative alert if no route (e.g. for Video KYC if pending)
-                                alert(`Next step: ${nextStep?.title}. Hold tight, we are setting it up!`)
+                                const nextStep = STEPS[activesteps];
+                                if (nextStep?.route) {
+                                    router.push(nextStep.route)
+                                } else {
+                                    alert(`Next step: ${nextStep?.title}. Hold tight, we are setting it up!`)
+                                }
                             }
                         }}
                         className="p-8 bg-black text-white rounded-2xl shadow-xl hover:shadow-black/20 transition-all cursor-pointer group flex flex-col justify-between"
                     >
                         <div>
-                            <h3 className="font-bold text-xl mb-2 text-white">Next Step</h3>
-                            <p className="text-white/60 text-sm mb-6">Complete the upcoming {STEPS[activesteps]?.title} to proceed.</p>
+                            <h3 className="font-bold text-xl mb-2 text-white">
+                                {activesteps === 4 ? 'Video KYC' : 'Next Step'}
+                            </h3>
+                            <p className="text-white/60 text-sm mb-6">
+                                {activesteps === 4 
+                                    ? 'Click to join the Video KYC call with our verification team.' 
+                                    : `Complete the upcoming ${STEPS[activesteps]?.title} to proceed.`
+                                }
+                            </p>
                         </div>
                         <div className="flex items-center justify-between mt-auto">
-                            <span className="font-bold text-lg">Continue</span>
+                            <span className="font-bold text-lg">
+                                {activesteps === 4 ? 'Join Video KYC' : 'Continue'}
+                            </span>
                             <ChevronRight className="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300" />
                         </div>
                     </motion.div>

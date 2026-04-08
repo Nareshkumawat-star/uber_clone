@@ -18,7 +18,7 @@ export async function GET() {
         // Find users who have completed primary onboarding (steps >= 3)
         const pendingPartners = await User.find({ 
             role: "partner", 
-            partneronbaordingsteps: { $gte: 3 } 
+            partneronbaordingsteps: 3 
         }).lean();
 
         // Enhance with related details
@@ -66,9 +66,8 @@ export async function PATCH(req: Request) {
         }
 
         if (action === "approve") {
-            // Move to next stage, e.g., Video KYC (Step 4) or just mark as fully live (Step 8)
-            // For now, let's move to Step 4 (Video KYC) as per the STEPS array
             updatedUser.partneronbaordingsteps = 4;
+            updatedUser.videoKycStatus = "pending";
             
             // Also update underlying models status
             await Promise.all([
