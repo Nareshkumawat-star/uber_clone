@@ -200,7 +200,9 @@ export default function BankSetupPage() {
                 if (res.status === 201 || res.status === 200) {
                   router.push('/')
                 }
-              } catch (error) {
+              } catch (error: any) {
+                const msg = error?.response?.data?.error || 'Submission failed. Please try again.'
+                alert(msg)
                 console.error('Submission failed:', error)
               } finally {
                 setIsSubmitting(false)

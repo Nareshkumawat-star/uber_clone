@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import React from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/redux/store'
-import { Check, Lock, ChevronRight } from 'lucide-react'
+import { Check, Lock, ChevronRight, XCircle } from 'lucide-react'
 import { motion } from 'motion/react'
+import axios from 'axios'
 
 import { useRouter } from 'next/navigation'
 
@@ -27,6 +28,8 @@ const STEPS: Step[] = [
 
 function PartnerDashboard() {
     const [activesteps, setactivesteps] = useState(0);
+    const [rejected, setRejected] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState('');
     const { userdata } = useSelector((state: RootState) => state.user)
     const router = useRouter()
 
@@ -39,7 +42,6 @@ function PartnerDashboard() {
 
             const currentStep = userdata.partneronbaordingsteps || 0;
             
-            // If onboarding is incomplete, redirect to the correct step
             if (currentStep === 0) {
                 router.push('/partner/onboarding/vehicle')
                 return
@@ -52,6 +54,16 @@ function PartnerDashboard() {
             }
 
             setactivesteps(currentStep)
+
+            // Check if review was rejected (at step 3)
+            if (currentStep === 3) {
+                axios.get('/api/partner/onboard/document').then(res => {
+                    if (res.data?.docs?.status === 'rejected') {
+                        setRejected(true)
+                        setRejectionReason(res.data.docs.rejectionreason || 'Your application was rejected by admin.')
+                    }
+                }).catch(() => {})
+            }
         }
     }, [userdata, router])
 
@@ -132,7 +144,24 @@ function PartnerDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-20">
                     <div className="p-8 bg-gray-50 rounded-2xl border border-gray-100 hover:border-black/5 transition-all">
                         <h3 className="font-bold text-xl mb-3 text-black">Account Status</h3>
-                        {activesteps === 4 ? (
+                        {rejected ? (
+                            <>
+                                <p className="text-gray-500 text-sm leading-relaxed mb-3">
+                                    Your application has been reviewed and was not approved at this time.
+                                </p>
+                                {rejectionReason && (
+                                    <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-3">
+                                        <p className="text-xs font-medium text-red-600">
+                                            <span className="font-bold">Reason:</span> {rejectionReason}
+                                        </p>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2 text-red-600 font-semibold text-sm">
+                                    <XCircle className="w-4 h-4" />
+                                    Review Rejected
+                                </div>
+                            </>
+                        ) : activesteps === 4 ? (
                             <>
                                 <p className="text-gray-500 text-sm leading-relaxed mb-4">
                                     Your documents have been approved! Please complete the Video KYC to proceed to the next step.

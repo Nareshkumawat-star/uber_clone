@@ -42,9 +42,12 @@ export async function POST(req:Request){
         await user.save();
         return NextResponse.json({ bank }, { status: 201 });
     }
-    catch(error){
-        console.log(error);
-        return NextResponse.json({error:"partner bank eorror"},{status:500});
+    catch(error: any){
+        console.log("Bank onboarding error:", error?.message || error);
+        if (error?.code === 11000) {
+            return NextResponse.json({error: "Mobile number already in use by another account"}, {status: 409});
+        }
+        return NextResponse.json({error: error?.message || "partner bank error"},{status:500});
     }
 }
 export async function GET(){
