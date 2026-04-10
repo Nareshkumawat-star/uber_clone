@@ -28,7 +28,7 @@ const STAT_CONFIG = [
 const TABS = [
     { id: 'partner', label: 'Pending Partner Reviews', icon: Users, badgeKey: 'pending', badgeType: 'error' },
     { id: 'kyc', label: 'Pending Video KYC', icon: Video, badgeKey: 'pendingKyc', badgeType: 'error' },
-    { id: 'vehicle', label: 'Pending Vehicle Reviews', icon: Car, badgeValue: 0, badgeType: 'neutral' },
+    { id: 'final', label: 'Final Review', icon: Car, badgeKey: 'pendingFinal', badgeType: 'neutral' },
 ];
 
 function AdminDashboard() {
@@ -36,27 +36,33 @@ function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('partner');
     const [partners, setPartners] = useState<any[]>([]);
     const [kycPartners, setKycPartners] = useState<any[]>([]);
+    const [finalPartners, setFinalPartners] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, pendingKyc: 0 });
+    const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, pendingKyc: 0, pendingFinal: 0 });
 
     const fetchData = async () => {
         try {
             setIsLoading(true);
-            const [partnerRes, kycRes] = await Promise.all([
+            const [partnerRes, kycRes, finalRes] = await Promise.all([
                 axios.get('/api/admin/partners'),
-                axios.get('/api/admin/videokyc/pendng')
+                axios.get('/api/admin/videokyc/pending'),
+                axios.get('/api/admin/reviews/final')
             ]);
             const partnerData = partnerRes.data.partners;
             const kycData = kycRes.data.partners;
+            const finalData = finalRes.data.partners;
+
             setPartners(partnerData);
             setKycPartners(kycData);
+            setFinalPartners(finalData);
             
             setStats({
-                total: partnerData.length + kycData.length,
+                total: partnerData.length + kycData.length + finalData.length,
                 approved: 0,
                 pending: partnerData.length,
                 rejected: 0,
                 pendingKyc: kycData.length,
+                pendingFinal: finalData.length
             });
         } catch (error) {
             console.error("Failed to fetch data:", error);
@@ -80,7 +86,7 @@ function AdminDashboard() {
 
     const handleKycAction = async (partnerId: string, action: 'approve' | 'reject') => {
         try {
-            await axios.patch('/api/admin/videokyc/pendng', { partnerId, action });
+            await axios.patch('/api/admin/videokyc/pending', { partnerId, action });
             fetchData();
         } catch (error) {
             console.error(`Failed to ${action} KYC:`, error);
@@ -105,7 +111,7 @@ function AdminDashboard() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto p-8">
+            <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
@@ -121,10 +127,10 @@ function AdminDashboard() {
                 </div>
 
                 {/* Stat Cards - Matching Image */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12">
                     {STAT_CONFIG.map((conf) => (
-                        <div key={conf.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[160px] flex flex-col justify-between hover:shadow-md transition-shadow cursor-default">
-                            <div className={`w-12 h-12 ${conf.bgColor} rounded-xl flex items-center justify-center`}>
+                        <div key={conf.id} className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 min-h-[140px] md:min-h-[160px] flex flex-col justify-between hover:shadow-xl hover:border-black/5 transition-all cursor-default group">
+                            <div className={`w-12 h-12 ${conf.bgColor} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
                                 <conf.icon className={`w-6 h-6 ${conf.iconColor}`} />
                             </div>
                             <div>
@@ -135,18 +141,18 @@ function AdminDashboard() {
                     ))}
                 </div>
 
-                {/* Navigation Tabs - Matching Image */}
-                <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex items-center gap-4 mb-8 overflow-x-auto">
+                {/* Navigation Tabs - Responsive Scrollable */}
+                <div className="bg-white rounded-[2rem] p-2 shadow-sm border border-gray-100 flex items-center gap-2 mb-8 overflow-x-auto scrollbar-hide">
                     {TABS.map((tab) => {
                         const badgeValue = tab.badgeKey ? stats[tab.badgeKey as keyof typeof stats] : tab.badgeValue;
                         return (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all duration-300 relative group ${
+                                className={`flex items-center gap-2 px-6 py-4 rounded-2xl transition-all duration-300 relative group whitespace-nowrap ${
                                     activeTab === tab.id 
-                                        ? "bg-black text-white shadow-[0_10px_20px_rgba(0,0,0,0.15)]" 
-                                        : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                                        ? "bg-black text-white shadow-2xl shadow-black/20" 
+                                        : "bg-gray-50 text-gray-400 hover:bg-gray-100"
                                 }`}
                             >
                                 <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? "text-white" : "text-gray-400 group-hover:text-gray-600"}`} />
@@ -186,14 +192,14 @@ function AdminDashboard() {
                             </div>
                         ) : (
                             partners.map((partner) => (
-                                <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-black/10 transition-all">
+                                <div key={partner._id} className="bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-6 group hover:shadow-xl hover:border-black/5 transition-all">
                                     <div className="flex items-center gap-6">
-                                        <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xl font-bold border border-gray-100">
+                                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gray-50 flex items-center justify-center text-xl font-bold border border-gray-100 shrink-0">
                                             {partner.name?.charAt(0)}
                                         </div>
-                                        <div className="flex flex-col gap-1">
-                                            <h4 className="font-bold text-black text-lg leading-none">{partner.name}</h4>
-                                            <p className="text-xs text-gray-400 font-medium">{partner.email}</p>
+                                        <div className="flex flex-col gap-1 overflow-hidden">
+                                            <h4 className="font-black text-black text-lg md:text-xl leading-none truncate">{partner.name}</h4>
+                                            <p className="text-xs text-gray-400 font-medium truncate">{partner.email}</p>
                                             <div className="flex items-center gap-3 mt-1">
                                                 <span className="bg-gray-50 text-[10px] font-bold text-gray-500 px-2 py-1 rounded-md border border-gray-100 uppercase tracking-wider">
                                                     {partner.vehicle?.vechileType} • {partner.vehicle?.number}
@@ -261,17 +267,53 @@ function AdminDashboard() {
                                 </div>
                             ))
                         )
-                    ) : (
-                        <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-100">
-                            <div className="max-w-md mx-auto">
-                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                    <Car className="w-8 h-8 text-gray-300" />
+                    ) : activeTab === 'final' ? (
+                        finalPartners.length === 0 ? (
+                            <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-100">
+                                <div className="max-w-md mx-auto">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Car className="w-8 h-8 text-gray-300" />
+                                    </div>
+                                    <h2 className="text-xl font-bold text-black mb-2">No Final Reviews</h2>
+                                    <p className="text-gray-400 text-sm">No partners are waiting for final approval.</p>
                                 </div>
-                                <h2 className="text-xl font-bold text-black mb-2">No Pending Vehicle Reviews</h2>
-                                <p className="text-gray-400 text-sm">No vehicles waiting for review.</p>
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            finalPartners.map((partner: any) => (
+                                <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:border-black/10 transition-all">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-xl font-bold border border-blue-100 text-blue-600 overflow-hidden">
+                                            {partner.vehicle?.imageurl ? (
+                                                <img src={partner.vehicle.imageurl} className="w-full h-full object-cover" />
+                                            ) : (
+                                                partner.name?.charAt(0)
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <h4 className="font-bold text-black text-lg leading-none">{partner.name}</h4>
+                                            <p className="text-xs text-gray-400 font-medium">{partner.email}</p>
+                                            <div className="flex items-center gap-3 mt-1">
+                                                <span className="bg-green-50 text-[10px] font-bold text-green-600 px-2 py-1 rounded-md border border-green-100 uppercase tracking-wider">
+                                                    Pricing Configured
+                                                </span>
+                                                <span className="bg-gray-50 text-[10px] font-bold text-gray-400 px-2 py-1 rounded-md border border-gray-100 uppercase tracking-wider">
+                                                    {partner.vehicle?.vechileType} • ₹{partner.vehicle?.basfare} Base
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => router.push(`/admin/vendor/final-review/${partner._id}`)}
+                                            className="px-6 py-2.5 bg-black text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all active:scale-95 flex items-center gap-2"
+                                        >
+                                            Complete Review
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )
+                    ) : null}
                 </div>
             </main>
         </div>

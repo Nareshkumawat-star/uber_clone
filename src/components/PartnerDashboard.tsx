@@ -21,7 +21,7 @@ const STEPS: Step[] = [
     { id: 3, title: "Bank", route: "/partner/onboarding/Bank" },
     { id: 4, title: "Review" },
     { id: 5, title: "Video KYC" },
-    { id: 6, title: "Pricing" },
+    { id: 6, title: "Pricing", route: "/partner/onboarding/pricing" },
     { id: 7, title: "Final Review" },
     { id: 8, title: "Live" },
 ];
@@ -32,7 +32,7 @@ function PartnerDashboard() {
     const [rejectionReason, setRejectionReason] = useState('');
     const { userdata } = useSelector((state: RootState) => state.user)
     const router = useRouter()
-
+   const[pricing , setpricing] = useState(false)
     useEffect(() => {
         if (userdata) {
             if (userdata.role === 'admin') {
@@ -74,69 +74,80 @@ function PartnerDashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 className="max-w-6xl w-full"
             >
-                <div className="mb-12 text-center">
-                    <h1 className="text-4xl font-bold text-black mb-2">Partner Onboarding</h1>
-                    <p className="text-gray-500 text-lg">Your progress in becoming a partner at GoRide</p>
+                <div className="mb-10 md:mb-16 text-center px-2">
+                    <h1 className="text-3xl md:text-5xl font-black text-black mb-3 tracking-tight">Onboarding</h1>
+                    <p className="text-gray-400 text-base md:text-lg font-medium">Your journey to becoming a GoRide partner</p>
                 </div>
 
-                {/* Progress Bar Container */}
-                <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 md:p-12 mb-16 relative overflow-hidden">
-                    <div className="relative flex items-center justify-between w-full max-w-5xl mx-auto">
-                        
-                        {/* Connecting Line Background */}
-                        <div className="absolute top-5 left-0 w-full h-[2px] bg-gray-100 -z-0" />
-                        
-                        {/* Connecting Line Active */}
-                        <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(Math.min(activesteps, STEPS.length - 1) / (STEPS.length - 1)) * 100}%` }}
-                            className="absolute top-5 left-0 h-[2px] bg-black -z-0 transition-all duration-700 ease-out"
-                        />
+                {/* Progress Bar Container - Responsive Scroll */}
+                <div className="bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.03)] border border-gray-100 p-6 md:p-12 mb-12 relative">
+                    <div className="overflow-x-auto pb-8 -mb-8 scrollbar-hide">
+                        <div className="relative flex items-center justify-between min-w-[700px] md:min-w-full px-4 py-4">
+                            
+                            {/* Progress Line Container - Inset to match circle centers (w-12 circles => 24px/left-6 inset) */}
+                            <div className="absolute top-[42px] left-6 right-6 h-[2px] -z-0 bg-gray-50">
+                                {/* Connecting Line Active */}
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(Math.min(activesteps, STEPS.length - 1) / (STEPS.length - 1)) * 100}%` }}
+                                    className="h-full bg-black transition-all duration-1000 ease-in-out origin-left"
+                                />
+                            </div>
 
-                        {STEPS.map((step, index) => {
-                            const isCompleted = index < activesteps;
-                            const isCurrent = index === activesteps;
-                            const isLocked = index > activesteps;
+                            {STEPS.map((step, index) => {
+                                const isCompleted = index < activesteps;
+                                const isCurrent = index === activesteps;
+                                const isLocked = index > activesteps;
 
-                            return (
-                                <div key={step.id} className="relative z-10 flex flex-col items-center group cursor-pointer">
-                                    {/* Step Circle */}
-                                    <motion.div
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                                            isCompleted 
-                                                ? "bg-black border-black text-white" 
-                                                : isCurrent 
-                                                    ? "bg-white border-black text-black ring-4 ring-black/5 shadow-sm" 
-                                                    : "bg-white border-gray-100 text-gray-300"
-                                        }`}
+                                return (
+                                    <div 
+                                        key={step.id} 
+                                        className="relative z-10 flex flex-col items-center gap-4 cursor-pointer"
+                                        onClick={() => {
+                                            if (step.route && (index <= activesteps)) {
+                                                router.push(step.route)
+                                            } else if (index === 4 && activesteps === 4 && userdata?._id) {
+                                                // special case for video kyc which has dynamic route
+                                                router.push(`/videokyc/${userdata._id}`)
+                                            }
+                                        }}
                                     >
-                                        {isCompleted ? (
-                                            <Check className="w-5 h-5 stroke-[3px]" />
-                                        ) : isLocked ? (
-                                            <Lock className="w-4 h-4 opacity-40" />
-                                        ) : (
-                                            <span className="text-sm font-bold">{step.id}</span>
-                                        )}
-                                    </motion.div>
+                                        {/* Step Circle */}
+                                        <motion.div
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
+                                                isCompleted 
+                                                    ? "bg-black border-black text-white shadow-lg shadow-black/10" 
+                                                    : isCurrent 
+                                                        ? "bg-white border-black text-black ring-8 ring-black/5 shadow-xl" 
+                                                        : "bg-white border-gray-100 text-gray-200"
+                                            }`}
+                                        >
+                                            {isCompleted ? (
+                                                <Check className="w-6 h-6 stroke-[3px]" />
+                                            ) : isLocked ? (
+                                                <Lock className="w-4 h-4 opacity-30" />
+                                            ) : (
+                                                <span className="text-sm font-black">{step.id}</span>
+                                            )}
+                                        </motion.div>
 
-                                    {/* Step Label */}
-                                    <div className="absolute -bottom-8 whitespace-nowrap text-center">
-                                        <span className={`text-xs font-bold transition-colors duration-300 ${
-                                            isCurrent ? "text-black text-sm" : isCompleted ? "text-gray-600" : "text-gray-300"
+                                        {/* Step Label */}
+                                        <span className={`text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+                                            isCurrent ? "text-black translate-y-1" : isCompleted ? "text-gray-400" : "text-gray-200"
                                         }`}>
                                             {step.title}
                                         </span>
+                                        
+                                        {/* Pulse effect for current step */}
+                                        {isCurrent && (
+                                            <div className="absolute top-0 left-0 w-12 h-12 rounded-full bg-black/5 animate-ping -z-10" />
+                                        )}
                                     </div>
-                                    
-                                    {/* Pulse effect for current step */}
-                                    {isCurrent && (
-                                        <div className="absolute -inset-1 rounded-full bg-black/5 animate-ping -z-10" />
-                                    )}
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
@@ -161,34 +172,54 @@ function PartnerDashboard() {
                                     Review Rejected
                                 </div>
                             </>
+                        ) : activesteps === 8 ? (
+                            <>
+                                <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                    Congratulations! Your account is now fully approved and active. You can start receiving ride requests.
+                                </p>
+                                <div className="flex items-center gap-2 text-black font-semibold text-sm">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    Account Active & Live
+                                </div>
+                            </>
+                        ) : activesteps >= 6 ? (
+                            <>
+                                <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                    Everything is set up. Our team is performing a final quality check before going live.
+                                </p>
+                                <div className="flex items-center gap-2 text-black font-semibold text-sm">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                    Final Review in Progress
+                                </div>
+                            </>
+                        ) : activesteps === 5 ? (
+                            <>
+                                <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                    Final step! Configure your ride pricing to start receiving bookings.
+                                </p>
+                                <div className="flex items-center gap-2 text-black font-semibold text-sm">
+                                    <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+                                    Pricing Setup Pending
+                                </div>
+                            </>
                         ) : activesteps === 4 ? (
                             <>
                                 <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                                    Your documents have been approved! Please complete the Video KYC to proceed to the next step.
+                                    Your documents have been approved! Please complete the Video KYC to proceed.
                                 </p>
                                 <div className="flex items-center gap-2 text-black font-semibold text-sm">
                                     <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
                                     Video KYC Pending
                                 </div>
                             </>
-                        ) : activesteps >= 5 ? (
-                            <>
-                                <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                                    Video KYC has been completed. Continue with the remaining steps.
-                                </p>
-                                <div className="flex items-center gap-2 text-black font-semibold text-sm">
-                                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                                    KYC Approved
-                                </div>
-                            </>
                         ) : (
                             <>
                                 <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                                    You have successfully submitted your primary information. Our team is currently reviewing your application.
+                                    You have successfully submitted your information. Our team is currently reviewing your profile.
                                 </p>
                                 <div className="flex items-center gap-2 text-black font-semibold text-sm">
                                     <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                                    Review Pending
+                                    Initial Review Pending
                                 </div>
                             </>
                         )}
@@ -212,18 +243,20 @@ function PartnerDashboard() {
                     >
                         <div>
                             <h3 className="font-bold text-xl mb-2 text-white">
-                                {activesteps === 4 ? 'Video KYC' : 'Next Step'}
+                                {activesteps === 8 ? 'Dashboard' : activesteps === 4 ? 'Video KYC' : 'Next Step'}
                             </h3>
                             <p className="text-white/60 text-sm mb-6">
-                                {activesteps === 4 
-                                    ? 'Click to join the Video KYC call with our verification team.' 
-                                    : `Complete the upcoming ${STEPS[activesteps]?.title} to proceed.`
+                                {activesteps === 8 
+                                    ? 'Your account is live! Go to your driver dashboard to start earning.'
+                                    : activesteps === 4 
+                                        ? 'Click to join the Video KYC call with our verification team.' 
+                                        : `Complete the upcoming ${STEPS[activesteps]?.title} to proceed.`
                                 }
                             </p>
                         </div>
                         <div className="flex items-center justify-between mt-auto">
                             <span className="font-bold text-lg">
-                                {activesteps === 4 ? 'Join Video KYC' : 'Continue'}
+                                {activesteps === 8 ? 'Enter Dashboard' : activesteps === 4 ? 'Join Video KYC' : 'Continue'}
                             </span>
                             <ChevronRight className="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300" />
                         </div>

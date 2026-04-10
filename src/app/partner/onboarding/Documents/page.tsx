@@ -76,10 +76,10 @@ export default function DocumentsPage() {
             headers: { 'Content-Type': 'multipart/form-data' }
           })
           if (res.status === 200) {
-            router.push('/partner/onboarding/Bank')
+            router.push('/')
           }
         } else {
-          router.push('/partner/onboarding/Bank')
+          router.push('/')
         }
       } catch (error) {
         console.error('Upload failed:', error)

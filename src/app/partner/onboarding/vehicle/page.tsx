@@ -69,7 +69,7 @@ export default function VehicleOnboardingPage() {
       });
       
       if (res.status === 201 || res.status === 200) {
-        router.push('/partner/onboarding/Documents')
+        router.push('/')
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message;

@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/redux/store'
 import { Video, Loader2 } from 'lucide-react'
+import axios from 'axios'
 
 function VideoKycPage() {
     const params = useParams()
@@ -12,11 +13,14 @@ function VideoKycPage() {
     const containerRef = useRef<HTMLDivElement>(null)
     const [isStarting, setIsStarting] = useState(false)
     const [isInCall, setIsInCall] = useState(false)
+    const [isProcessing, setIsProcessing] = useState(false)
     const { userdata } = useSelector((state: RootState) => state.user)
+    const hasJoinedRef = useRef(false)
 
     const startCall = async () => {
-        if (isStarting || isInCall) return
+        if (isStarting || isInCall || hasJoinedRef.current) return
         setIsStarting(true)
+        hasJoinedRef.current = true
 
         try {
             const { ZegoUIKitPrebuilt } = await import('@zegocloud/zego-uikit-prebuilt')
@@ -54,9 +58,34 @@ function VideoKycPage() {
             setIsInCall(true)
         } catch (error) {
             console.error('Failed to start call:', error)
+            hasJoinedRef.current = false
             alert('Failed to start video call. Please check camera/mic permissions.')
         } finally {
             setIsStarting(false)
+        }
+    }
+
+    const handleKycAction = async (action: 'approve' | 'reject') => {
+        let reason = ''
+        if (action === 'reject') {
+            reason = prompt('Please enter rejection reason:') || ''
+            if (!reason) return
+        }
+
+        try {
+            setIsProcessing(true)
+            await axios.patch('/api/admin/videokyc/pending', { 
+                partnerId: roomId, // In this flow, roomId is the partner's userId
+                action,
+                reason 
+            })
+            alert(`Partner KYC ${action}d successfully.`)
+            router.push('/')
+        } catch (error) {
+            console.error('Action failed:', error)
+            alert('Failed to process action.')
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -109,6 +138,31 @@ function VideoKycPage() {
                 </div>
             )}
             <div ref={containerRef} style={{ width: '100%', height: isInCall ? '100vh' : '0', overflow: 'hidden' }} />
+            
+            {/* Admin Controls Overlay */}
+            {isInCall && userdata?.role === 'admin' && (
+                <div className="absolute top-10 right-10 z-[999] flex flex-col gap-4 bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 shadow-2xl">
+                    <div className="flex flex-col gap-3">
+                        <p className="text-[10px] font-black text-white/60 uppercase tracking-widest text-center mb-1">
+                            Admin KYC Controls
+                        </p>
+                        <button
+                            onClick={() => handleKycAction('approve')}
+                            disabled={isProcessing}
+                            className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold text-sm transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                        >
+                            Approve Partner
+                        </button>
+                        <button
+                            onClick={() => handleKycAction('reject')}
+                            disabled={isProcessing}
+                            className="px-8 py-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold text-sm transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                        >
+                            Reject Partner
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

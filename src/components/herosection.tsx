@@ -23,9 +23,9 @@ function Herosection({ onBookNow }: HerosectionProps) {
                     initial={{ opacity: 0, y: 40 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                    className='text-5xl md:text-8xl font-bold mb-6 tracking-tighter'
+                    className='text-5xl sm:text-7xl md:text-8xl font-black mb-6 tracking-tighter leading-[0.9]'
                 >
-                    Book Any Vehicle
+                    Book Any<br className="md:hidden" /> Vehicle
                 </motion.h1>
 
                 <motion.p 
@@ -42,12 +42,12 @@ function Herosection({ onBookNow }: HerosectionProps) {
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 1, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                    className='flex flex-wrap justify-center gap-8 md:gap-12 mb-10 md:mb-16 opacity-40'
+                    className='flex flex-wrap justify-center gap-6 sm:gap-8 md:gap-12 mb-10 md:mb-16 opacity-40'
                 >
-                    <Bike className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Car className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Bus className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Truck className='w-6 h-6 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Bike className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Car className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Bus className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
+                    <Truck className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
                 </motion.div>
 
                 {/* Call to Action Button */}
