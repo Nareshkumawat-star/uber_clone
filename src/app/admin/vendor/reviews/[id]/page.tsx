@@ -21,7 +21,7 @@ function ReviewPage() {
             if (!id) return;
             
             try {
-                setIsLoading(true);
+                setIsLoading(true)
                 const res = await axios.get(`/api/admin/reviews/partner/${id}`);
                 setPartnerData(res.data);
             } catch (error) {
@@ -270,4 +270,4 @@ function ReviewPage() {
     )
 }
 
-export default ReviewPage
+export default ReviewPage
