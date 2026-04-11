@@ -75,6 +75,8 @@ function AdminDashboard() {
         fetchData();
     }, []);
 
+    const [invitingId, setInvitingId] = useState<string | null>(null);
+
     const handleAction = async (partnerId: string, action: 'approve' | 'reject') => {
         try {
             await axios.patch('/api/admin/partners', { partnerId, action });
@@ -90,6 +92,19 @@ function AdminDashboard() {
             fetchData();
         } catch (error) {
             console.error(`Failed to ${action} KYC:`, error);
+        }
+    };
+
+    const handleResendInvite = async (partnerId: string) => {
+        try {
+            setInvitingId(partnerId);
+            await axios.post('/api/admin/videokyc/invite', { partnerId });
+            alert("Invitation sent successfully!");
+        } catch (error) {
+            console.error("Failed to resend invite:", error);
+            alert("Failed to send invitation. Check server logs.");
+        } finally {
+            setInvitingId(null);
         }
     };
 
@@ -234,7 +249,7 @@ function AdminDashboard() {
                             </div>
                         ) : (
                             kycPartners.map((partner: any) => (
-                                <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:border-black/10 transition-all">
+                                <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:border-black/10 transition-all flex-wrap gap-4">
                                     <div className="flex items-center gap-6">
                                         <div className="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center text-xl font-bold border border-purple-100 text-purple-600">
                                             {partner.name?.charAt(0)}
@@ -249,7 +264,14 @@ function AdminDashboard() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <button 
+                                            onClick={() => handleResendInvite(partner._id)}
+                                            disabled={invitingId === partner._id}
+                                            className="px-5 py-2.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl text-xs font-bold hover:bg-blue-100 transition-all active:scale-95 disabled:opacity-50"
+                                        >
+                                            {invitingId === partner._id ? 'Sending...' : 'Resend Invite'}
+                                        </button>
                                         <button 
                                             onClick={() => router.push(`/videokyc/${partner._id}`)}
                                             className="px-5 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2"

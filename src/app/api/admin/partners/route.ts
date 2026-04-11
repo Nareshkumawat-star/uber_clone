@@ -5,6 +5,7 @@ import Vechile from "@/models/Vechile.model";
 import Partnerdocs from "@/models/Partner.docs.model";
 import Partnerbank from "@/models/PartnerBankDetails";
 import { NextResponse } from "next/server";
+import { sendKycInviteEmail, sendDocumentRejectionEmail } from "@/lib/mail";
 
 export async function GET() {
     try {
@@ -75,6 +76,14 @@ export async function PATCH(req: Request) {
                 Partnerdocs.findOneAndUpdate({ owner: partnerId }, { status: "approved" }),
                 Partnerbank.findOneAndUpdate({ owner: partnerId }, { status: "verified" })
             ]);
+
+            try {
+                await sendKycInviteEmail(updatedUser.email, updatedUser.name, updatedUser._id.toString());
+                console.log(`Video KYC invite sent to ${updatedUser.email}`);
+            } catch (emailError) {
+                console.error("Failed to send KYC invite email:", emailError);
+            }
+
         } else if (action === "reject") {
             // Reset steps or keep at 3 but mark as rejected?
             // Let's keep at 3 but update the sub-models with rejection reasons
@@ -83,6 +92,13 @@ export async function PATCH(req: Request) {
                 Partnerdocs.findOneAndUpdate({ owner: partnerId }, { status: "rejected", rejectionreason: reason }),
                 Partnerbank.findOneAndUpdate({ owner: partnerId }, { rejectionreason: reason })
             ]);
+
+            try {
+                await sendDocumentRejectionEmail(updatedUser.email, updatedUser.name, reason);
+                console.log(`Document rejection email sent to ${updatedUser.email}`);
+            } catch (emailError) {
+                console.error("Failed to send rejection email:", emailError);
+            }
         }
 
         await updatedUser.save();
