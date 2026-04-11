@@ -37,4 +37,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ---
 
-> Last updated: April 9, 2026
+> Last updated: April 12, 2026
