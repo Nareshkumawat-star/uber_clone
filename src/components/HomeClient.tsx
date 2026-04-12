@@ -6,6 +6,7 @@ import PublicHome from "@/components/PublicHome";
 import Authmodel from "@/components/Authmodel";
 import PartnerDashboard from '@/components/PartnerDashboard';
 import AdminDashboard from '@/components/AdminDashboard';
+import UserDashboard from '@/components/UserDashboard';
 
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
@@ -27,6 +28,10 @@ export default function HomeClient({ session }: { session: any }) {
     
     if (userRole === 'admin') {
       return <AdminDashboard />;
+    }
+
+    if (userRole === 'user') {
+      return <UserDashboard />;
     }
 
     // Default to public home for general users or others
