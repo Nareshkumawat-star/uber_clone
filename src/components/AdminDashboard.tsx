@@ -159,7 +159,7 @@ function AdminDashboard() {
                 {/* Navigation Tabs - Responsive Scrollable */}
                 <div className="bg-white rounded-[2rem] p-2 shadow-sm border border-gray-100 flex items-center gap-2 mb-8 overflow-x-auto scrollbar-hide">
                     {TABS.map((tab) => {
-                        const badgeValue = tab.badgeKey ? stats[tab.badgeKey as keyof typeof stats] : tab.badgeValue;
+                        const badgeValue = tab.badgeKey ? stats[tab.badgeKey as keyof typeof stats] : 0;
                         return (
                             <button
                                 key={tab.id}

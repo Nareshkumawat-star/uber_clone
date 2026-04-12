@@ -15,7 +15,6 @@ export default function PartnerDashboard() {
   const stats = [
     { label: 'Total Earnings', value: '₹0.00', icon: Landmark, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
     { label: "Today's Rides", value: '0', icon: Car, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-    { label: 'Rating', value: '5.0', icon: User, color: 'text-amber-400', bg: 'bg-amber-400/10' },
   ]
 
   const { socket, isConnected } = useSocket()
@@ -100,7 +99,7 @@ export default function PartnerDashboard() {
             });
         },
         (error) => console.error('Geolocation Error:', error),
-        { enableHighAccuracy: true, distanceFilter: 10 }
+        { enableHighAccuracy: true }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -190,6 +189,10 @@ export default function PartnerDashboard() {
               <Bell size={20} />
             </div>
             <div className="h-12 pl-2 pr-5 bg-white/5 border border-white/10 rounded-full flex items-center gap-3 cursor-pointer hover:bg-white/10 transition-all">
+              <div className="flex items-center gap-1.5 px-2 bg-amber-400/10 border border-amber-400/20 rounded-full py-1">
+                 <span className="text-[10px] font-black text-amber-400 uppercase tracking-tighter">5.0</span>
+                 <Bell size={10} className="text-amber-400 fill-amber-400" />
+              </div>
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 p-[1px]">
                   <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
                     <User size={14} className="text-white" />
@@ -200,97 +203,88 @@ export default function PartnerDashboard() {
           </div>
         </div>
 
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-6 auto-rows-[160px]">
+        {/* Optimized Split Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
           
-          {/* Main Hero Card (Span large) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="md:col-span-6 lg:col-span-8 row-span-2 bg-gradient-to-br from-purple-900/40 to-black/40 border border-white/5 rounded-[2rem] p-8 relative overflow-hidden group flex flex-col justify-end"
-          >
-            <div className="absolute top-0 right-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay" />
-            <div className="absolute -top-32 -right-32 w-96 h-96 bg-purple-500/20 rounded-full blur-[80px] group-hover:bg-purple-500/30 transition-all duration-700" />
-            
-            <div className="relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mb-6">
-                <Navigation className="text-purple-400 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]" size={24} />
-              </div>
-              <h3 className="text-4xl md:text-5xl font-black mb-4 tracking-tighter shadow-black drop-shadow-xl">Ready to drive?</h3>
-              <p className="text-gray-400 text-sm md:text-base font-medium max-w-sm mb-8 leading-relaxed">
-                Your account is fully approved! You are online and ready to accept nearby ride requests. Drive safely.
-              </p>
-              
-              <div className="flex gap-4">
-                <button className="bg-white text-black px-8 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)]">
-                  Go Offline
-                </button>
-                <button 
-                  onClick={() => setIncomingRide({
-                    pickupAddress: "123 Test Street, Delhi",
-                    destinationAddress: "Downtown Mall, New Delhi",
-                    vehicle: { name: "GoRide Premium", price: "₹250" }
-                  })}
-                  className="bg-white/10 text-white border border-white/20 px-8 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-white/20 transition-all"
-                >
-                  Test UI Signal <Bell size={14} />
-                </button>
-              </div>
+          {/* Left Column: Stats and Actions */}
+          <div className="lg:col-span-4 space-y-6 flex flex-col">
+            {/* Stats row */}
+            <div className="grid grid-cols-2 gap-4">
+                {stats.map((stat, i) => (
+                    <motion.div
+                        key={i}
+                        className="bg-white/5 border border-white/5 rounded-[2rem] p-6 flex flex-col justify-between"
+                    >
+                        <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-4`}>
+                            <stat.icon size={18} className={stat.color} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
+                            <h3 className="text-2xl font-black tracking-tight">{stat.value}</h3>
+                        </div>
+                    </motion.div>
+                ))}
             </div>
-          </motion.div>
 
-          {/* Stats Mini Cards */}
-          {stats.map((stat, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + (i * 0.1) }}
-              className="col-span-1 md:col-span-3 lg:col-span-4 row-span-1 bg-white/5 border border-white/5 hover:border-white/10 rounded-[2rem] p-6 flex flex-col justify-between group transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                  <stat.icon size={18} className={stat.color} />
+            {/* Status / Toggle Card */}
+            <motion.div className="flex-1 bg-gradient-to-br from-purple-900/40 to-black/40 border border-white/5 rounded-[2rem] p-8 flex flex-col justify-between relative overflow-hidden group">
+                <div className="relative z-10">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mb-6">
+                        <Navigation className="text-purple-400" size={24} />
+                    </div>
+                    <h3 className="text-3xl font-black mb-2 tracking-tighter">Ready to drive?</h3>
+                    <p className="text-gray-400 text-sm font-medium leading-relaxed mb-8">
+                        Online and looking for requests.
+                    </p>
                 </div>
-                <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
-                  <ChevronRight size={14} className="text-gray-400" />
+
+                <div className="relative z-10 space-y-3">
+                    <button className="w-full bg-white text-black py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:scale-105 transition-all">
+                        Go Offline
+                    </button>
+                    <button 
+                         onClick={() => setIncomingRide({
+                            pickupAddress: "123 Test Street, Delhi",
+                            pickupCoords: { lat: 28.5436, lng: 77.1600 },
+                            destinationAddress: "Downtown Mall, New Delhi",
+                            destinationCoords: { lat: 28.5548, lng: 77.1710 },
+                            vehicle: { name: "GoRide Premium", price: "₹250" }
+                          })}
+                        className="w-full bg-white/5 text-white/40 border border-white/10 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                    >
+                        Test UI Signal <Bell size={14} />
+                    </button>
                 </div>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
-                <h3 className="text-3xl font-black tracking-tight">{stat.value}</h3>
-              </div>
             </motion.div>
-          ))}
+          </div>
 
-          {/* Extra Bento Card for Location / Map snippet */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="md:col-span-6 lg:col-span-8 row-span-2 bg-white/5 border border-white/5 rounded-[2rem] p-0 relative overflow-hidden"
-          >
-            <div className="absolute inset-0 z-0">
+          {/* Right Column: Hero Map View */}
+          <div className="lg:col-span-8 bg-white/5 border border-white/5 rounded-[3rem] p-0 relative overflow-hidden h-full shadow-2xl">
+             <div className="absolute inset-0 z-0">
                 <LiveMap 
                     currentLocation={incomingRide?.pickupCoords || activeRide?.pickupCoords || null} 
-                    destinationLocation={incomingRide?.destinationCoords || activeRide?.destinationCoords || null} 
+                    destinationLocation={activeRide ? activeRide.destinationCoords : (incomingRide?.destinationCoords || null)} 
                 />
             </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none" />
             
-            <div className="relative z-10 w-full p-6 flex items-center justify-between mt-20">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center animate-pulse">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full" />
+            <div className="absolute bottom-8 left-8 right-8 z-10 flex items-center justify-between">
+              <div className="flex items-center gap-3 bg-black/40 backdrop-blur-xl border border-white/10 p-4 px-6 rounded-2xl">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center animate-pulse">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Live Map</p>
-                  <p className="text-sm font-bold">Active Zone</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Navigation Map</p>
+                  <p className="text-sm font-bold tracking-tight">Active Coverage Zone</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-center text-white/60 hover:text-white cursor-pointer transition-all">
+                    <MapPinIcon size={20} />
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
 

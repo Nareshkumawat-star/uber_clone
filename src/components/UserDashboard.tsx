@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { MapPin, Navigation, Navigation2, Search, Car, CreditCard, ChevronRight, Loader2, Clock, MapPinIcon } from 'lucide-react'
 import { useGeolocation } from '@/hooks/useGeolocation'
@@ -24,6 +24,8 @@ export default function UserDashboard() {
   const [currentOtp, setCurrentOtp] = useState<string | null>(null);
   const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isTripStarted, setIsTripStarted] = useState(false);
+  const lastGeocodedCoords = useRef<{lat: number, lng: number} | null>(null);
+  const [mockCoords, setMockCoords] = useState<{lat: number, lng: number} | null>(null);
   
   // Destination states
   const [destQuery, setDestQuery] = useState('');
@@ -87,29 +89,50 @@ export default function UserDashboard() {
   useEffect(() => {
       const fetchCurrentLocationName = async (lat: number, lng: number) => {
           try {
+              // Only search if coordinates changed significantly (approx 20 meters)
+              if (lastGeocodedCoords.current) {
+                  const dist = Math.sqrt(
+                      Math.pow(lat - lastGeocodedCoords.current.lat, 2) + 
+                      Math.pow(lng - lastGeocodedCoords.current.lng, 2)
+                  );
+                  // Threshold roughly 0.0002 decimal degrees
+                  if (dist < 0.0002 && pickup !== 'Fetching current location...') return;
+              }
+
               setPickup('Locating exact address...');
               const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
               const data = await res.json();
               if (data && data.display_name) {
                   const parts = data.display_name.split(', ');
-                  // Attempt to show a highly readable short address
                   const shortAddress = parts.length > 2 ? `${parts[0]}, ${parts[1]}, ${parts[parts.length - 3] || ''}` : data.display_name;
-                  setPickup(shortAddress.replace(/, ,/g, ',').replace(/,\s*$/, ''));
-              } else {
-                  setPickup(`Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
+                  const finalAddress = shortAddress.replace(/, ,/g, ',').replace(/,\s*$/, '');
+                  setPickup(finalAddress);
+                  lastGeocodedCoords.current = { lat, lng };
               }
           } catch (err) {
               console.error('Reverse geocode error:', err);
-              setPickup('Current Location');
           }
       };
 
-      if (!loading && coordinates) {
-          fetchCurrentLocationName(coordinates.lat, coordinates.lng);
-      } else if (error) {
-          setPickup('Could not fetch location');
+      if (!loading && (mockCoords || coordinates)) {
+          const coordsToUse = mockCoords || coordinates;
+          if (coordsToUse) fetchCurrentLocationName(coordsToUse.lat, coordsToUse.lng);
       }
-  }, [coordinates, loading, error]);
+  }, [coordinates, mockCoords, loading]);
+
+  const handleRecenter = () => {
+      setMockCoords(null);
+      if (coordinates) {
+          setPickup('Locating...');
+          lastGeocodedCoords.current = null; // Force refresh
+      }
+  };
+
+  const handleMockLocation = () => {
+    const testLocation = { lat: 28.6441, lng: 77.1118 }; // Pacific Mall, Delhi
+    setMockCoords(testLocation);
+    setPickup('Mocked: Pacific Mall, Delhi');
+  };
 
   const handleSelectSuggestion = (place: any) => {
       setDestQuery(place.display_name);
@@ -251,6 +274,13 @@ export default function UserDashboard() {
                             value={pickup}
                             onChange={(e) => setPickup(e.target.value)}
                         />
+                        <button 
+                            onClick={handleRecenter}
+                            title="Use current location"
+                            className="p-2 hover:bg-black/5 rounded-full transition-all text-black/40 hover:text-black"
+                        >
+                            <Navigation size={14} />
+                        </button>
                         {loading && <Loader2 size={16} className="animate-spin text-gray-400" />}
                     </div>
                 </div>
@@ -369,12 +399,23 @@ export default function UserDashboard() {
 
       {/* Right Panel: Live Interactive Map */}
       <div className="flex-1 bg-gray-100 relative h-[50vh] md:h-auto z-10 border-l border-gray-200">
-        <LiveMap 
-            currentLocation={coordinates} 
-            destinationLocation={isTripStarted ? selectedDestination : null} 
-            driverLocation={driverLocation}
-            driverIconUrl={activeVehicle?.img}
-        />
+          <div className="absolute inset-0 z-0">
+             <LiveMap 
+                currentLocation={mockCoords || coordinates} 
+                destinationLocation={selectedDestination} 
+                driverLocation={driverLocation}
+             />
+          </div>
+
+          {/* Map Overlay Buttons (Mocking) */}
+          <div className="absolute bottom-10 right-10 z-20 flex flex-col gap-3">
+              <button 
+                onClick={handleMockLocation}
+                className="bg-white text-black px-6 py-3 rounded-2xl font-black text-xs shadow-2xl border border-gray-100 uppercase tracking-widest hover:scale-105 transition-all active:scale-95"
+              >
+                📍 Mock Rider (Test Path)
+              </button>
+          </div>
       </div>
 
     </div>

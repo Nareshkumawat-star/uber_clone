@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { useMemo } from 'react'
 
 // Fix for default Leaflet icons safely
 if (typeof window !== 'undefined') {
@@ -62,6 +63,13 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
   const [mounted, setMounted] = useState(false);
   const [routeData, setRouteData] = useState<[number, number][]>([])
   const [driverToRiderRoute, setDriverToRiderRoute] = useState<[number, number][]>([])
+
+  const memoizedDriverIcon = useMemo(() => new L.Icon({
+    iconUrl: driverIconUrl || 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -22],
+  }), [driverIconUrl]);
 
   useEffect(() => {
     setMounted(true);
@@ -197,12 +205,7 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
         {driverLocation && (
           <Marker 
             position={[driverLocation.lat, driverLocation.lng]} 
-            icon={new L.Icon({
-                iconUrl: driverIconUrl || 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
-                iconSize: [44, 44],
-                iconAnchor: [22, 22],
-                popupAnchor: [0, -22],
-            })}
+            icon={memoizedDriverIcon}
           >
              <Popup>
               <div className="font-bold text-center text-black">Your Partner</div>
