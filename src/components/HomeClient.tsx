@@ -30,10 +30,6 @@ export default function HomeClient({ session }: { session: any }) {
       return <AdminDashboard />;
     }
 
-    if (userRole === 'user') {
-      return <UserDashboard />;
-    }
-
     // Default to public home for general users or others
     return <PublicHome setAuthOpen={setAuthOpen} />;
   }

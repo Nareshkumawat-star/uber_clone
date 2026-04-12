@@ -1,8 +1,10 @@
 'use client'
 import React from 'react'
 import { motion } from 'motion/react'
-import { LayoutDashboard, Car, FileText, Landmark, Settings, LogOut, ChevronRight, Bell, User, MapPin, Navigation, Map } from 'lucide-react'
+import { LayoutDashboard, Car, FileText, Landmark, Settings, LogOut, ChevronRight, Bell, User, MapPin, Navigation, Map, ShieldCheck } from 'lucide-react'
 import { signOut } from 'next-auth/react'
+import { useSocket } from '@/components/SocketProvider'
+import { useEffect, useState } from 'react'
 
 export default function PartnerDashboard() {
   const stats = [
@@ -10,6 +12,34 @@ export default function PartnerDashboard() {
     { label: "Today's Rides", value: '0', icon: Car, color: 'text-blue-400', bg: 'bg-blue-400/10' },
     { label: 'Rating', value: '5.0', icon: User, color: 'text-amber-400', bg: 'bg-amber-400/10' },
   ]
+
+  const { socket, isConnected } = useSocket()
+  const [incomingRide, setIncomingRide] = useState<any>(null)
+  const [activeRide, setActiveRide] = useState<any>(null)
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    socket.on('new_ride_request', (data) => {
+       console.log('Incoming ride:', data);
+       setIncomingRide(data);
+    });
+
+    return () => {
+       socket.off('new_ride_request');
+    };
+  }, [socket]);
+
+  const handleAcceptRide = () => {
+    if (!socket || !incomingRide) return;
+    socket.emit('accept_ride', { ...incomingRide, partner: { name: 'GoRide Partner', rating: '5.0' }});
+    setActiveRide(incomingRide);
+    setIncomingRide(null);
+  };
+
+  const handleDeclineRide = () => {
+    setIncomingRide(null);
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex select-none font-sans selection:bg-purple-500/30">
@@ -163,6 +193,73 @@ export default function PartnerDashboard() {
           </motion.div>
         </div>
       </div>
+
+      {/* Incoming Ride Overlay Modal */}
+      {incomingRide && !activeRide && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+           <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col text-black p-6"
+           >
+              <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4 animate-pulse">
+                <Navigation size={24} className="text-blue-500" />
+              </div>
+              <h2 className="text-2xl font-black text-center mb-2 tracking-tight">Incoming Request!</h2>
+              <p className="text-gray-500 text-sm text-center mb-6 font-medium">A rider is looking for a {incomingRide.vehicle?.name}</p>
+
+              <div className="bg-gray-50 rounded-2xl p-4 space-y-4 mb-6 border border-gray-100">
+                 <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center shrink-0 mt-0.5">
+                       <MapPinIcon size={12} className="text-white" />
+                    </div>
+                    <div>
+                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Pickup</p>
+                       <p className="font-semibold text-sm leading-tight text-gray-800">{incomingRide.pickupAddress}</p>
+                    </div>
+                 </div>
+
+                 <div className="w-0.5 h-6 bg-gray-200 ml-3" />
+
+                 <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5">
+                       <MapPin size={12} className="text-black" />
+                    </div>
+                    <div>
+                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Dropoff</p>
+                       <p className="font-semibold text-sm leading-tight text-gray-800">{incomingRide.destinationAddress}</p>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="flex items-center justify-between mb-8 px-4">
+                 <span className="font-bold text-gray-600">Estimated Fare</span>
+                 <span className="text-3xl font-black text-black">{incomingRide.vehicle?.price}</span>
+              </div>
+
+              <div className="flex gap-4">
+                 <button onClick={handleDeclineRide} className="flex-1 bg-gray-100 hover:bg-gray-200 text-black font-bold py-4 rounded-xl transition-all">
+                    Decline
+                 </button>
+                 <button onClick={handleAcceptRide} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                    Accept Ride <ShieldCheck size={18} />
+                 </button>
+              </div>
+           </motion.div>
+        </div>
+      )}
+
+      {/* Active Ride Banner (Persists when accepted) */}
+      {activeRide && (
+         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-green-500 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-4 animate-bounce">
+            <div className="bg-white/20 p-2 rounded-full"><Car size={20} /></div>
+            <div>
+               <p className="font-bold text-sm">Ride Active</p>
+               <p className="text-xs opacity-80">Proceeding to {activeRide.pickupAddress.split(',')[0]}</p>
+            </div>
+         </div>
+      )}
+
     </div>
   )
 }

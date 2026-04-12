@@ -57,7 +57,9 @@ export async function POST(req:Request){
         if(user.partneronbaordingsteps < 1){
             user.partneronbaordingsteps = 1;
         }
-        user.role = "partner";
+        if (user.role === "user") {
+            user.role = "partner";
+        }
         await user.save();
 
         return NextResponse.json({vechile: currentVechile},{status:201});
