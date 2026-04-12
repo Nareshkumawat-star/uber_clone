@@ -228,14 +228,16 @@ function PartnerDashboard() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => {
-                            if (activesteps === 4 && userdata?._id) {
+                            if (activesteps === 8) {
+                                router.push('/partner/dashboard')
+                            } else if (activesteps === 4 && userdata?._id) {
                                 router.push(`/videokyc/${userdata._id}`)
                             } else {
                                 const nextStep = STEPS[activesteps];
                                 if (nextStep?.route) {
                                     router.push(nextStep.route)
                                 } else {
-                                    alert(`Next step: ${nextStep?.title}. Hold tight, we are setting it up!`)
+                                    alert(`Next step: ${nextStep?.title || 'Unknown'}. Hold tight, we are setting it up!`)
                                 }
                             }
                         }}

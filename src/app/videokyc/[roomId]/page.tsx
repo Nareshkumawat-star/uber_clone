@@ -16,6 +16,17 @@ function VideoKycPage() {
     const [isProcessing, setIsProcessing] = useState(false)
     const { userdata } = useSelector((state: RootState) => state.user)
     const hasJoinedRef = useRef(false)
+    const zcInstanceRef = useRef<any>(null)
+
+    React.useEffect(() => {
+        return () => {
+            if (zcInstanceRef.current) {
+                try {
+                    zcInstanceRef.current.destroy()
+                } catch(e) {}
+            }
+        }
+    }, [])
 
     const startCall = async () => {
         if (isStarting || isInCall || hasJoinedRef.current) return
@@ -28,7 +39,7 @@ function VideoKycPage() {
             const appID = Number(process.env.NEXT_PUBLIC_ZEGO_APP_ID)
             const serverSecret = process.env.NEXT_PUBLIC_ZEGO_SERVER_SECRET as string
 
-            const userID = userdata?._id || `user_${Date.now()}`
+            const userID = userdata?._id ? `${userdata._id}_${Date.now()}` : `user_${Date.now()}`
             const userName = userdata?.name || 'User'
 
             const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
@@ -40,19 +51,27 @@ function VideoKycPage() {
             )
 
             const zc = ZegoUIKitPrebuilt.create(kitToken)
+            zcInstanceRef.current = zc
 
             zc.joinRoom({
                 container: containerRef.current!,
                 scenario: {
-                    mode: ZegoUIKitPrebuilt.OneONoneCall,
+                    mode: ZegoUIKitPrebuilt.VideoConference,
                 },
                 showPreJoinView: false,
                 turnOnCameraWhenJoining: true,
                 turnOnMicrophoneWhenJoining: true,
                 showLeaveRoomConfirmDialog: true,
                 onLeaveRoom: () => {
+                    try { zcInstanceRef.current?.destroy() } catch(e) {}
                     router.push('/')
                 },
+                onUserLeave: (users: any[]) => {
+                    if (userdata?.role !== 'admin') {
+                        try { zcInstanceRef.current?.destroy() } catch(e) {}
+                        window.location.href = '/'
+                    }
+                }
             })
 
             setIsInCall(true)
@@ -79,8 +98,14 @@ function VideoKycPage() {
                 action,
                 reason 
             })
+            
+            // Force destroy the room so partner gets kicked
+            if (zcInstanceRef.current) {
+                try { zcInstanceRef.current.destroy() } catch(e) {}
+            }
+            
             alert(`Partner KYC ${action}d successfully.`)
-            router.push('/')
+            window.location.href = '/' // Hard refresh for admin too
         } catch (error) {
             console.error('Action failed:', error)
             alert('Failed to process action.')
@@ -137,11 +162,14 @@ function VideoKycPage() {
                     </div>
                 </div>
             )}
-            <div ref={containerRef} style={{ width: '100%', height: isInCall ? '100vh' : '0', overflow: 'hidden' }} />
+            <div 
+                ref={containerRef} 
+                className={`absolute top-0 left-0 w-full h-screen bg-black transition-opacity duration-300 ${isInCall ? 'opacity-100 z-50' : 'opacity-0 -z-50 pointer-events-none'}`} 
+            />
             
             {/* Admin Controls Overlay */}
             {isInCall && userdata?.role === 'admin' && (
-                <div className="absolute top-10 right-10 z-[999] flex flex-col gap-4 bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 shadow-2xl">
+                <div className="absolute top-10 left-10 z-[999] flex flex-col gap-4 bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 shadow-2xl">
                     <div className="flex flex-col gap-3">
                         <p className="text-[10px] font-black text-white/60 uppercase tracking-widest text-center mb-1">
                             Admin KYC Controls

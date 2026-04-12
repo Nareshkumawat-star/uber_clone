@@ -92,7 +92,7 @@ export default function PartnerDashboard() {
             <p className="text-gray-400 text-sm max-w-md font-medium leading-relaxed">
               We're currently verifying your documents and bank details. This usually takes 24-48 hours. We'll notify you via email once you're ready to hit the road!
             </p>
-            <button className="mt-8 bg-white text-black px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:scale-105 transition-all">
+            <button onClick={() => window.location.href = '/'} className="mt-8 bg-white text-black px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 cursor-pointer hover:scale-105 transition-all">
               Check Status
               <ChevronRight size={14} />
             </button>

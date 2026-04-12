@@ -198,7 +198,7 @@ export default function BankSetupPage() {
                 })
 
                 if (res.status === 201 || res.status === 200) {
-                  window.location.href = '/'
+                  window.location.href = '/partner/dashboard'
                 }
               } catch (error: any) {
                 const msg = error?.response?.data?.error || 'Submission failed. Please try again.'
