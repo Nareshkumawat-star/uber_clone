@@ -1,10 +1,15 @@
 'use client'
-import React from 'react'
-import { motion } from 'motion/react'
-import { LayoutDashboard, Car, FileText, Landmark, Settings, LogOut, ChevronRight, Bell, User, MapPin, Navigation, Map, ShieldCheck } from 'lucide-react'
 import { signOut } from 'next-auth/react'
+import { LayoutDashboard, Car, FileText, Landmark, Settings, LogOut, ChevronRight, Bell, User, MapPin as MapPinIcon, Navigation, Map, ShieldCheck } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useSocket } from '@/components/SocketProvider'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
+
+const LiveMap = dynamic(() => import('@/components/LiveMap'), { 
+    ssr: false,
+    loading: () => <div className="w-full h-full bg-white/5 animate-pulse rounded-[2rem]" />
+})
 
 export default function PartnerDashboard() {
   const stats = [
@@ -16,12 +21,16 @@ export default function PartnerDashboard() {
   const { socket, isConnected } = useSocket()
   const [incomingRide, setIncomingRide] = useState<any>(null)
   const [activeRide, setActiveRide] = useState<any>(null)
+  const [otpInput, setOtpInput] = useState('')
+  const [isVerified, setIsVerified] = useState(false)
+  const [tripStatus, setTripStatus] = useState<'approaching' | 'ongoing' | 'completed'>('approaching')
+  const [isSimulating, setIsSimulating] = useState(false)
 
   useEffect(() => {
     if (!socket) return;
     
     socket.on('new_ride_request', (data) => {
-       console.log('Incoming ride:', data);
+       console.log('Incoming ride request received on client:', data);
        setIncomingRide(data);
     });
 
@@ -33,9 +42,91 @@ export default function PartnerDashboard() {
   const handleAcceptRide = () => {
     if (!socket || !incomingRide) return;
     socket.emit('accept_ride', { ...incomingRide, partner: { name: 'GoRide Partner', rating: '5.0' }});
+    // The server will respond with 'ride_accepted' which we already listen for, 
+    // but for the partner, we can set state immediately
     setActiveRide(incomingRide);
     setIncomingRide(null);
+    setTripStatus('approaching');
+
+    // Immediate location broadcast upon acceptance
+    navigator.geolocation.getCurrentPosition((position) => {
+        socket.emit('update_location', { 
+            partnerId: 'test-partner', 
+            coords: { lat: position.coords.latitude, lng: position.coords.longitude } 
+        });
+    });
   };
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    // Listen for the broadcast of our own acceptance to get the OTP
+    socket.on('ride_accepted', (data) => {
+       if (activeRide && !activeRide.otp) {
+          setActiveRide((prev: any) => ({ ...prev, otp: data.otp }));
+       }
+    });
+
+    return () => {
+        socket.off('ride_accepted');
+    };
+  }, [socket, activeRide]);
+
+  const handleVerifyOtp = () => {
+    if (otpInput === activeRide?.otp) {
+       setIsVerified(true);
+       setTripStatus('ongoing');
+       // Notify the rider that the trip has started
+       if (socket) socket.emit('trip_started', { rideId: activeRide.id });
+    } else {
+       alert("Invalid Verification Code. Please ask the rider for the correct code.");
+    }
+  };
+
+  // Live Location Tracking for active rides
+  useEffect(() => {
+    if (!socket || !activeRide) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+            const coords = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+            };
+            console.log('Emitting live location:', coords);
+            socket.emit('update_location', { 
+                partnerId: 'test-partner', // Could be dynamic based on session
+                coords 
+            });
+        },
+        (error) => console.error('Geolocation Error:', error),
+        { enableHighAccuracy: true, distanceFilter: 10 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [socket, activeRide]);
+
+  // Simulation Logic
+  useEffect(() => {
+    if (!isSimulating || !activeRide || !socket) return;
+
+    let currentLat = activeRide.pickupCoords.lat + 0.01;
+    let currentLng = activeRide.pickupCoords.lng + 0.01;
+
+    const interval = setInterval(() => {
+        // Slowly move towards the pickup location
+        currentLat -= (currentLat - activeRide.pickupCoords.lat) * 0.1;
+        currentLng -= (currentLng - activeRide.pickupCoords.lng) * 0.1;
+
+        console.log('SIMULATION: Moving to', { lat: currentLat, lng: currentLng });
+        socket.emit('update_location', { 
+            partnerId: 'test-partner', 
+            coords: { lat: currentLat, lng: currentLng } 
+        });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isSimulating, activeRide, socket]);
 
   const handleDeclineRide = () => {
     setIncomingRide(null);
@@ -90,7 +181,7 @@ export default function PartnerDashboard() {
               className="text-xs font-bold text-gray-500 uppercase tracking-[0.2em] mt-2 flex items-center gap-2"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Status: Live & Online
+              Status: Live & Online {isConnected ? '(Connected)' : '(Disconnected)'}
             </motion.p>
           </div>
           
@@ -135,8 +226,15 @@ export default function PartnerDashboard() {
                 <button className="bg-white text-black px-8 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)]">
                   Go Offline
                 </button>
-                <button className="bg-white/10 text-white border border-white/20 px-8 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-white/20 transition-all">
-                  Open Map <Map size={14} />
+                <button 
+                  onClick={() => setIncomingRide({
+                    pickupAddress: "123 Test Street, Delhi",
+                    destinationAddress: "Downtown Mall, New Delhi",
+                    vehicle: { name: "GoRide Premium", price: "₹250" }
+                  })}
+                  className="bg-white/10 text-white border border-white/20 px-8 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-white/20 transition-all"
+                >
+                  Test UI Signal <Bell size={14} />
                 </button>
               </div>
             </div>
@@ -171,23 +269,25 @@ export default function PartnerDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="md:col-span-6 lg:col-span-4 row-span-1 bg-white/5 border border-white/5 rounded-[2rem] p-6 relative overflow-hidden flex items-end"
+            className="md:col-span-6 lg:col-span-8 row-span-2 bg-white/5 border border-white/5 rounded-[2rem] p-0 relative overflow-hidden"
           >
-            <div className="absolute inset-0 bg-[url('https://maps.gstatic.com/mapfiles/api-3/images/map_dark.png')] opacity-30 bg-cover bg-center grayscale contrast-150" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
+            <div className="absolute inset-0 z-0">
+                <LiveMap 
+                    currentLocation={incomingRide?.pickupCoords || activeRide?.pickupCoords || null} 
+                    destinationLocation={incomingRide?.destinationCoords || activeRide?.destinationCoords || null} 
+                />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none" />
             
-            <div className="relative z-10 w-full flex items-center justify-between">
+            <div className="relative z-10 w-full p-6 flex items-center justify-between mt-20">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center animate-pulse">
                   <div className="w-3 h-3 bg-blue-500 rounded-full" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Zone</p>
-                  <p className="text-sm font-bold">Downtown Sector</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Live Map</p>
+                  <p className="text-sm font-bold">Active Zone</p>
                 </div>
-              </div>
-              <div className="text-[10px] bg-blue-500/20 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/20 font-bold uppercase tracking-wider">
-                High Demand
               </div>
             </div>
           </motion.div>
@@ -197,69 +297,183 @@ export default function PartnerDashboard() {
       {/* Incoming Ride Overlay Modal */}
       {incomingRide && !activeRide && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-           <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 50 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col text-black p-6"
-           >
-              <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4 animate-pulse">
-                <Navigation size={24} className="text-blue-500" />
-              </div>
-              <h2 className="text-2xl font-black text-center mb-2 tracking-tight">Incoming Request!</h2>
-              <p className="text-gray-500 text-sm text-center mb-6 font-medium">A rider is looking for a {incomingRide.vehicle?.name}</p>
+            <motion.div 
+               initial={{ scale: 0.9, opacity: 0, y: 50 }}
+               animate={{ scale: 1, opacity: 1, y: 0 }}
+               className="bg-white rounded-[3rem] max-w-lg w-full shadow-2xl overflow-hidden flex flex-col text-black pb-8"
+            >
+               {/* Map Header Preview */}
+               <div className="w-full h-48 relative overflow-hidden bg-gray-100">
+                  <LiveMap 
+                    currentLocation={incomingRide.pickupCoords} 
+                    destinationLocation={incomingRide.destinationCoords} 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent pointer-events-none" />
+               </div>
 
-              <div className="bg-gray-50 rounded-2xl p-4 space-y-4 mb-6 border border-gray-100">
-                 <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center shrink-0 mt-0.5">
-                       <MapPinIcon size={12} className="text-white" />
-                    </div>
-                    <div>
-                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Pickup</p>
-                       <p className="font-semibold text-sm leading-tight text-gray-800">{incomingRide.pickupAddress}</p>
-                    </div>
-                 </div>
+               <div className="px-8 -mt-10 relative z-10">
+                  <div className="w-16 h-16 rounded-3xl bg-blue-600 shadow-xl shadow-blue-500/40 flex items-center justify-center mx-auto mb-4">
+                    <Navigation size={28} className="text-white" />
+                  </div>
+                  <h2 className="text-3xl font-black text-center mb-1 tracking-tighter">Incoming Request!</h2>
+                  <p className="text-gray-500 text-sm text-center mb-6 font-semibold uppercase tracking-widest leading-relaxed">
+                    {incomingRide.vehicle?.name}
+                  </p>
+               </div>
 
-                 <div className="w-0.5 h-6 bg-gray-200 ml-3" />
+               <div className="px-8 space-y-4 mb-8">
+                  <div className="bg-gray-50 rounded-2xl p-6 space-y-4 border border-gray-100">
+                     <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center shrink-0 mt-0.5 shadow-lg shadow-black/20">
+                           <MapPinIcon size={14} className="text-white" />
+                        </div>
+                        <div>
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pickup Location</p>
+                           <p className="font-bold text-sm leading-tight text-gray-800">{incomingRide.pickupAddress}</p>
+                        </div>
+                     </div>
 
-                 <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5">
-                       <MapPin size={12} className="text-black" />
-                    </div>
-                    <div>
-                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Dropoff</p>
-                       <p className="font-semibold text-sm leading-tight text-gray-800">{incomingRide.destinationAddress}</p>
-                    </div>
-                 </div>
-              </div>
+                     <div className="w-0.5 h-6 bg-gray-200 ml-4" />
 
-              <div className="flex items-center justify-between mb-8 px-4">
-                 <span className="font-bold text-gray-600">Estimated Fare</span>
-                 <span className="text-3xl font-black text-black">{incomingRide.vehicle?.price}</span>
-              </div>
+                     <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5">
+                           <MapPinIcon size={14} className="text-black" />
+                        </div>
+                        <div>
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Dropoff Point</p>
+                           <p className="font-bold text-sm leading-tight text-gray-800">{incomingRide.destinationAddress}</p>
+                        </div>
+                     </div>
+                  </div>
 
-              <div className="flex gap-4">
-                 <button onClick={handleDeclineRide} className="flex-1 bg-gray-100 hover:bg-gray-200 text-black font-bold py-4 rounded-xl transition-all">
-                    Decline
-                 </button>
-                 <button onClick={handleAcceptRide} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
-                    Accept Ride <ShieldCheck size={18} />
-                 </button>
-              </div>
-           </motion.div>
+                  <div className="flex items-center justify-between px-2 pt-2">
+                     <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Est. Fare</p>
+                        <p className="text-3xl font-black text-black tracking-tighter">{incomingRide.vehicle?.price}</p>
+                     </div>
+                     <div className="text-right">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Distance</p>
+                        <p className="text-lg font-bold text-gray-800">4.2 km</p>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="px-8 flex gap-4">
+                  <button onClick={handleDeclineRide} className="flex-1 bg-gray-100 hover:bg-gray-200 text-black font-black uppercase tracking-widest text-[11px] py-4 rounded-2xl transition-all">
+                     Decline
+                  </button>
+                  <button onClick={handleAcceptRide} className="flex-2 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[11px] py-4 px-8 rounded-2xl shadow-xl shadow-blue-500/30 transition-all flex items-center justify-center gap-3 active:scale-95">
+                     Accept <ShieldCheck size={18} />
+                  </button>
+               </div>
+            </motion.div>
         </div>
       )}
 
-      {/* Active Ride Banner (Persists when accepted) */}
+
+      {/* Active Trip Context Side Panel / Overlay */}
       {activeRide && (
-         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-green-500 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-4 animate-bounce">
-            <div className="bg-white/20 p-2 rounded-full"><Car size={20} /></div>
-            <div>
-               <p className="font-bold text-sm">Ride Active</p>
-               <p className="text-xs opacity-80">Proceeding to {activeRide.pickupAddress.split(',')[0]}</p>
+         <div className="fixed top-0 right-0 w-full md:w-96 h-full bg-white z-[60] shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
+            <div className="bg-black p-8 text-white">
+               <div className="flex justify-between items-center mb-6">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 bg-white/10 rounded-full">Active Trip</span>
+                  <div className="flex gap-2">
+                     <button 
+                        onClick={() => setIsSimulating(!isSimulating)} 
+                        className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-all ${isSimulating ? 'bg-amber-500 text-black' : 'bg-white/10 text-white/40'}`}
+                     >
+                        {isSimulating ? 'Stop Sim' : 'Simulate Drive'}
+                     </button>
+                     <button onClick={() => {setActiveRide(null); setIsVerified(false); setOtpInput('')}} className="text-white/40 hover:text-white transition-all"><LogOut size={18} /></button>
+                  </div>
+               </div>
+               <h2 className="text-3xl font-black mb-1">
+                  {tripStatus === 'approaching' ? 'Pick up Rider' : tripStatus === 'ongoing' ? 'In Progress' : 'Completed'}
+               </h2>
+               <p className="text-white/50 text-sm font-medium">Trip to {activeRide.destinationAddress.split(',')[0]}</p>
+            </div>
+
+            <div className="flex-1 p-8 overflow-y-auto">
+               <div className="space-y-8">
+                  {/* Address Section */}
+                  <div className="space-y-6">
+                     <div className="flex gap-4">
+                        <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center shrink-0 mt-1">
+                           <MapPinIcon size={14} className="text-white" />
+                        </div>
+                        <div>
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pickup Information</p>
+                           <p className="font-bold text-gray-800 leading-tight">{activeRide.pickupAddress}</p>
+                        </div>
+                     </div>
+                     <div className="flex gap-4">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-1">
+                           <Navigation size={14} className="text-black" />
+                        </div>
+                        <div>
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Dropoff Destination</p>
+                           <p className="font-bold text-gray-800 leading-tight">{activeRide.destinationAddress}</p>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="h-px bg-gray-100 w-full" />
+
+                  {/* Verification Section */}
+                  {!isVerified ? (
+                     <div className="bg-blue-50 rounded-[2rem] p-8 border border-blue-100">
+                        <div className="flex items-center gap-3 mb-4">
+                           <ShieldCheck className="text-blue-600" size={24} />
+                           <h4 className="font-black text-blue-900">Verify Identity</h4>
+                        </div>
+                        <p className="text-blue-700/70 text-sm font-medium mb-6">
+                           Ask the rider for their 4-digit code to start the trip.
+                        </p>
+                        
+                        <input 
+                           type="text" 
+                           maxLength={4}
+                           placeholder="Enter 4-digit code"
+                           value={otpInput}
+                           onChange={(e) => setOtpInput(e.target.value)}
+                           className="w-full bg-white border-2 border-blue-200 rounded-2xl p-4 text-center text-3xl font-black tracking-[0.5em] focus:border-blue-500 focus:outline-none transition-all mb-4 text-black"
+                        />
+
+                        <button 
+                           onClick={handleVerifyOtp}
+                           disabled={otpInput.length !== 4}
+                           className="w-full bg-blue-600 text-white rounded-xl py-4 font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
+                        >
+                           Start Trip
+                        </button>
+                     </div>
+                  ) : (
+                     <div className="bg-emerald-50 rounded-[2rem] p-8 border border-emerald-100 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mb-4 animate-bounce">
+                           <ShieldCheck size={32} />
+                        </div>
+                        <h4 className="font-black text-emerald-900 text-xl mb-2">Trip Started!</h4>
+                        <p className="text-emerald-700/70 text-sm font-medium mb-8">
+                           Rider identity verified. Proceed to destination.
+                        </p>
+
+                        <button 
+                           onClick={() => {
+                              setTripStatus('completed');
+                              setActiveRide(null);
+                              setIsVerified(false);
+                              setOtpInput('');
+                           }}
+                           className="w-full bg-emerald-600 text-white rounded-xl py-4 font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-500/30 transition-all active:scale-95"
+                        >
+                           Complete Ride
+                        </button>
+                     </div>
+                  )}
+               </div>
             </div>
          </div>
       )}
-
     </div>
   )
 }

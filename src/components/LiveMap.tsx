@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
@@ -23,30 +23,97 @@ const customIcon = new L.Icon({
   popupAnchor: [0, -40],
 })
 
-function MapController({ center, destination }: { center: [number, number], destination?: [number, number] | null }) {
+const driverIcon = new L.Icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -22],
+})
+
+function MapController({ center, destination, driver }: { 
+    center: [number, number], 
+    destination?: [number, number] | null,
+    driver?: [number, number] | null
+}) {
   const map = useMap()
   useEffect(() => {
-    if (center && destination) {
-      const bounds = L.latLngBounds([center, destination])
+    const points: [number, number][] = [center]
+    if (destination) points.push(destination)
+    if (driver) points.push(driver)
+    
+    if (points.length > 1) {
+      const bounds = L.latLngBounds(points)
       map.fitBounds(bounds, { padding: [80, 80] })
-    } else if (center) {
+    } else {
       map.setView(center, 15)
     }
-  }, [center, destination, map])
+  }, [center, destination, driver, map])
   return null
 }
 
 interface LiveMapProps {
   currentLocation: { lat: number; lng: number } | null
   destinationLocation?: { lat: number; lng: number } | null
+  driverLocation?: { lat: number; lng: number } | null
+  driverIconUrl?: string | null
 }
 
-export default function LiveMap({ currentLocation, destinationLocation }: LiveMapProps) {
+export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl }: LiveMapProps) {
   const [mounted, setMounted] = useState(false);
+  const [routeData, setRouteData] = useState<[number, number][]>([])
+  const [driverToRiderRoute, setDriverToRiderRoute] = useState<[number, number][]>([])
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch route between pickup and destination
+  useEffect(() => {
+    if (!currentLocation || !destinationLocation) {
+        setRouteData([]);
+        return;
+    }
+
+    const fetchRoute = async () => {
+        try {
+            const url = `https://router.project-osrm.org/route/v1/driving/${currentLocation.lng},${currentLocation.lat};${destinationLocation.lng},${destinationLocation.lat}?overview=full&geometries=geojson`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.routes && data.routes[0]) {
+                const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+                setRouteData(coords);
+            }
+        } catch (err) {
+            console.error("Routing error:", err);
+        }
+    };
+
+    fetchRoute();
+  }, [currentLocation?.lat, currentLocation?.lng, destinationLocation?.lat, destinationLocation?.lng]);
+
+  // Fetch route between Driver and Pickup
+  useEffect(() => {
+    if (!driverLocation || !currentLocation) {
+        setDriverToRiderRoute([]);
+        return;
+    }
+
+    const fetchDriverRoute = async () => {
+        try {
+            const url = `https://router.project-osrm.org/route/v1/driving/${driverLocation.lng},${driverLocation.lat};${currentLocation.lng},${currentLocation.lat}?overview=full&geometries=geojson`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.routes && data.routes[0]) {
+                const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+                setDriverToRiderRoute(coords);
+            }
+        } catch (err) {
+            console.error("Driver Routing error:", err);
+        }
+    };
+
+    fetchDriverRoute();
+  }, [driverLocation?.lat, driverLocation?.lng, currentLocation?.lat, currentLocation?.lng]);
 
   // Default fallback to center of Delhi, India if no location
   const defaultCenter: [number, number] = [28.6139, 77.2090]
@@ -57,6 +124,10 @@ export default function LiveMap({ currentLocation, destinationLocation }: LiveMa
 
   const destCoords: [number, number] | null = destinationLocation
     ? [destinationLocation.lat, destinationLocation.lng]
+    : null
+
+  const driverCoords: [number, number] | null = driverLocation
+    ? [driverLocation.lat, driverLocation.lng]
     : null
 
   if (!mounted) {
@@ -96,7 +167,50 @@ export default function LiveMap({ currentLocation, destinationLocation }: LiveMa
           </Marker>
         )}
 
-        <MapController center={mapCenter} destination={destCoords} />
+        {/* Main Trip Path (Pickup -> Destination) */}
+        {routeData.length > 0 && (
+            <Polyline 
+                positions={routeData} 
+                pathOptions={{ 
+                    color: '#3B82F6', 
+                    weight: 5, 
+                    opacity: 0.8,
+                    lineJoin: 'round'
+                }} 
+            />
+        )}
+
+        {/* Driver Approach Path (Driver -> Pickup) */}
+        {driverToRiderRoute.length > 0 && (
+            <Polyline 
+                positions={driverToRiderRoute} 
+                pathOptions={{ 
+                    color: '#000000', 
+                    weight: 3, 
+                    opacity: 0.4,
+                    dashArray: '10, 10',
+                    lineJoin: 'round'
+                }} 
+            />
+        )}
+
+        {driverLocation && (
+          <Marker 
+            position={[driverLocation.lat, driverLocation.lng]} 
+            icon={new L.Icon({
+                iconUrl: driverIconUrl || 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
+                iconSize: [44, 44],
+                iconAnchor: [22, 22],
+                popupAnchor: [0, -22],
+            })}
+          >
+             <Popup>
+              <div className="font-bold text-center text-black">Your Partner</div>
+            </Popup>
+          </Marker>
+        )}
+
+        <MapController center={mapCenter} destination={destCoords} driver={driverCoords} />
       </MapContainer>
 
       {/* Overlay gradient to mimic Uber map fade */}

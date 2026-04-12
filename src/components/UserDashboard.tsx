@@ -21,6 +21,9 @@ export default function UserDashboard() {
   const { socket, isConnected } = useSocket();
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'searching' | 'accepted'>('idle');
   const [assignedPartner, setAssignedPartner] = useState<any>(null);
+  const [currentOtp, setCurrentOtp] = useState<string | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isTripStarted, setIsTripStarted] = useState(false);
   
   // Destination states
   const [destQuery, setDestQuery] = useState('');
@@ -59,11 +62,24 @@ export default function UserDashboard() {
     socket.on('ride_accepted', (data) => {
         console.log('Ride accepted by a partner:', data);
         setAssignedPartner(data.partner);
+        setCurrentOtp(data.otp);
         setBookingStatus('accepted');
+    });
+
+    socket.on('partner_location_update', (data) => {
+        console.log('Driver moved:', data.coords);
+        setDriverLocation(data.coords);
+    });
+
+    socket.on('trip_started', () => {
+        console.log('Trip officially started!');
+        setIsTripStarted(true);
     });
 
     return () => {
         socket.off('ride_accepted');
+        socket.off('partner_location_update');
+        socket.off('trip_started');
     };
   }, [socket]);
 
@@ -135,7 +151,7 @@ export default function UserDashboard() {
       };
 
       socket.emit('request_ride', ridePayload);
-      console.log('Dispatched ride request to network:', ridePayload);
+      console.log('CLIENT: Emitting request_ride to server:', ridePayload);
       setBookingStatus('searching');
   };
 
@@ -193,11 +209,21 @@ export default function UserDashboard() {
                       </div>
                   </div>
 
+                  {currentOtp && (
+                    <div className="w-full bg-blue-600 text-white rounded-[2rem] p-8 mb-8 shadow-xl shadow-blue-500/30">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] mb-2 opacity-80">Verification Code</p>
+                        <h4 className="text-6xl font-black tracking-tighter mb-4">{currentOtp}</h4>
+                        <p className="text-sm font-medium opacity-90 leading-relaxed">
+                            Share this code with your partner only when they reach your location to start the trip.
+                        </p>
+                    </div>
+                  )}
+
                   <button 
                       onClick={() => setBookingStatus('idle')}
                       className="w-full py-4 bg-black text-white rounded-2xl font-black text-lg hover:bg-gray-900 transition-all active:scale-95 shadow-xl shadow-black/20"
                   >
-                      Complete / Reset
+                      Cancel Trip
                   </button>
               </div>
           </div>
@@ -343,7 +369,12 @@ export default function UserDashboard() {
 
       {/* Right Panel: Live Interactive Map */}
       <div className="flex-1 bg-gray-100 relative h-[50vh] md:h-auto z-10 border-l border-gray-200">
-        <LiveMap currentLocation={coordinates} destinationLocation={selectedDestination} />
+        <LiveMap 
+            currentLocation={coordinates} 
+            destinationLocation={isTripStarted ? selectedDestination : null} 
+            driverLocation={driverLocation}
+            driverIconUrl={activeVehicle?.img}
+        />
       </div>
 
     </div>
