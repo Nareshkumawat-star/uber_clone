@@ -31,16 +31,38 @@ const driverIcon = new L.Icon({
     popupAnchor: [0, -22],
 })
 
-function MapController({ center, destination, driver }: { 
+const requestIcon = new L.DivIcon({
+  className: 'custom-div-icon',
+  html: `
+    <div style="position: relative; width: 44px; height: 44px;">
+      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #3B82F6; border-radius: 50%; animation: ripple 1.5s infinite; opacity: 0.6;"></div>
+      <div style="position: absolute; top: 10px; left: 10px; width: 24px; height: 24px; background: #3B82F6; border-radius: 50%; border: 3px solid white; display: flex; items-center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      </div>
+    </div>
+    <style>
+      @keyframes ripple {
+        0% { transform: scale(0.5); opacity: 0.8; }
+        100% { transform: scale(3); opacity: 0; }
+      }
+    </style>
+  `,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+});
+
+function MapController({ center, destination, driver, request }: { 
     center: [number, number], 
     destination?: [number, number] | null,
-    driver?: [number, number] | null
+    driver?: [number, number] | null,
+    request?: [number, number] | null
 }) {
   const map = useMap()
   useEffect(() => {
     const points: [number, number][] = [center]
     if (destination) points.push(destination)
     if (driver) points.push(driver)
+    if (request) points.push(request)
     
     if (points.length > 1) {
       const bounds = L.latLngBounds(points)
@@ -48,7 +70,7 @@ function MapController({ center, destination, driver }: {
     } else {
       map.setView(center, 15)
     }
-  }, [center, destination, driver, map])
+  }, [center, destination, driver, request, map])
   return null
 }
 
@@ -57,9 +79,10 @@ interface LiveMapProps {
   destinationLocation?: { lat: number; lng: number } | null
   driverLocation?: { lat: number; lng: number } | null
   driverIconUrl?: string | null
+  rideRequestLocation?: { lat: number; lng: number } | null
 }
 
-export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl }: LiveMapProps) {
+export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl, rideRequestLocation }: LiveMapProps) {
   const [mounted, setMounted] = useState(false);
   const [routeData, setRouteData] = useState<[number, number][]>([])
   const [driverToRiderRoute, setDriverToRiderRoute] = useState<[number, number][]>([])
@@ -138,6 +161,10 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
     ? [driverLocation.lat, driverLocation.lng]
     : null
 
+  const requestCoords: [number, number] | null = rideRequestLocation
+    ? [rideRequestLocation.lat, rideRequestLocation.lng]
+    : null
+
   if (!mounted) {
     return (
       <div className="w-full h-full relative z-0 shadow-inner rounded-3xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
@@ -162,7 +189,15 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
         {currentLocation && (
           <Marker position={[currentLocation.lat, currentLocation.lng]} icon={customIcon}>
             <Popup>
-              <div className="font-bold text-center">Your Current Location</div>
+              <div className="font-bold text-center text-black">Your Current Location</div>
+            </Popup>
+          </Marker>
+        )}
+
+        {rideRequestLocation && (
+          <Marker position={[rideRequestLocation.lat, rideRequestLocation.lng]} icon={requestIcon}>
+             <Popup>
+              <div className="font-bold text-center text-black">Rider's Pickup Point</div>
             </Popup>
           </Marker>
         )}
@@ -213,12 +248,12 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
           </Marker>
         )}
 
-        <MapController center={mapCenter} destination={destCoords} driver={driverCoords} />
+        <MapController center={mapCenter} destination={destCoords} driver={driverCoords} request={requestCoords} />
       </MapContainer>
 
-      {/* Overlay gradient to mimic Uber map fade */}
-      <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-white/40 to-transparent pointer-events-none z-[1000]" />
-      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white/40 to-transparent pointer-events-none z-[1000]" />
+      {/* Overlay gradient to match dark theme */}
+      <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-[1000]" />
+      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-[1000]" />
     </div>
   )
 }

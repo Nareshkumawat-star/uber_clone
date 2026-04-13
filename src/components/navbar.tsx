@@ -47,7 +47,7 @@ function Navbar({ onLogin }: { onLogin?: () => void }) {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.6 }}
-                        className='text-xl md:text-2xl font-black tracking-tighter uppercase text-white flex-shrink-0'
+                        className='text-lg sm:text-x md:text-2xl font-black tracking-tighter uppercase text-white flex-shrink-0'
                     >
                         Go<span className='text-white/60'>Ride</span>
                     </motion.div>

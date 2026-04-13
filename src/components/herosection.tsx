@@ -23,7 +23,7 @@ function Herosection({ onBookNow }: HerosectionProps) {
                     initial={{ opacity: 0, y: 40 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                    className='text-5xl sm:text-7xl md:text-8xl font-black mb-6 tracking-tighter leading-[0.9]'
+                    className='text-4xl sm:text-7xl md:text-8xl font-black mb-6 tracking-tighter leading-[1] md:leading-[0.9]'
                 >
                     Book Any<br className="md:hidden" /> Vehicle
                 </motion.h1>

@@ -401,9 +401,9 @@ export default function UserDashboard() {
       <div className="flex-1 bg-gray-100 relative h-[50vh] md:h-auto z-10 border-l border-gray-200">
           <div className="absolute inset-0 z-0">
              <LiveMap 
-                currentLocation={mockCoords || coordinates} 
-                destinationLocation={selectedDestination} 
-                driverLocation={driverLocation}
+                currentLocation={isTripStarted && driverLocation ? driverLocation : (mockCoords || coordinates)} 
+                destinationLocation={bookingStatus === 'accepted' && !isTripStarted ? null : selectedDestination} 
+                driverLocation={bookingStatus === 'accepted' ? driverLocation : null}
              />
           </div>
 
