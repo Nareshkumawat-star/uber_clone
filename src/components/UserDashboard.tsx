@@ -142,27 +142,31 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row pt-20">
-      {bookingStatus === 'idle' ? (
-          <BookingForm 
-            pickup={pickup} setPickup={setPickup} destQuery={destQuery} setDestQuery={setDestQuery}
-            handleRecenter={() => { setMockCoords(null); lastGeocodedCoords.current = null; }}
-            loading={loading} isSearching={isSearching} suggestions={suggestions}
-            handleSelectSuggestion={(place) => { setDestQuery(place.display_name); setSelectedDestination({ ...place, lat: parseFloat(place.lat), lng: parseFloat(place.lon) }); setSuggestions([]); }}
-            selectedDestination={selectedDestination} setSelectedDestination={setSelectedDestination}
-            vehicles={vehicles} activeVehicleId={activeVehicleId} setActiveVehicleId={setActiveVehicleId}
-            handleBookRide={handleBookRide}
-          />
-      ) : (
-          <RideStatusOverlay 
-            bookingStatus={bookingStatus} activeVehicle={activeVehicle} 
-            assignedPartner={assignedPartner} currentOtp={currentOtp}
-            setBookingStatus={setBookingStatus} setIsTripStarted={setIsTripStarted}
-          />
-      )}
+    <div className="min-h-screen bg-white flex flex-col md:flex-row pt-0">
+      <div className="z-20 relative bg-white">
+        {bookingStatus === 'idle' ? (
+            <div className="pt-20 h-full">
+            <BookingForm 
+              pickup={pickup} setPickup={setPickup} destQuery={destQuery} setDestQuery={setDestQuery}
+              handleRecenter={() => { setMockCoords(null); lastGeocodedCoords.current = null; }}
+              loading={loading} isSearching={isSearching} suggestions={suggestions}
+              handleSelectSuggestion={(place) => { setDestQuery(place.display_name); setSelectedDestination({ ...place, lat: parseFloat(place.lat), lng: parseFloat(place.lon) }); setSuggestions([]); }}
+              selectedDestination={selectedDestination} setSelectedDestination={setSelectedDestination}
+              vehicles={vehicles} activeVehicleId={activeVehicleId} setActiveVehicleId={setActiveVehicleId}
+              handleBookRide={handleBookRide}
+            />
+            </div>
+        ) : (
+            <RideStatusOverlay 
+              bookingStatus={bookingStatus} activeVehicle={activeVehicle} 
+              assignedPartner={assignedPartner} currentOtp={currentOtp}
+              setBookingStatus={setBookingStatus} setIsTripStarted={setIsTripStarted}
+            />
+        )}
+      </div>
 
       {/* Map Section */}
-      <div className="flex-1 bg-gray-100 relative h-[50vh] md:h-auto z-10 border-l border-gray-200">
+      <div className="flex-1 bg-gray-100 relative h-[50vh] md:h-auto z-10 border-l border-gray-100 shadow-2xl overflow-hidden">
           <div className="absolute inset-0 z-0">
              <LiveMap 
                 currentLocation={isTripStarted && driverLocation ? driverLocation : (mockCoords || coordinates)} 
@@ -172,7 +176,10 @@ export default function UserDashboard() {
              />
           </div>
           <div className="absolute bottom-10 right-10 z-20">
-              <button onClick={() => setMockCoords({ lat: 28.6441, lng: 77.1118 })} className="bg-white text-black px-6 py-3 rounded-2xl font-black text-xs shadow-2xl border border-gray-100 uppercase tracking-widest hover:scale-105 transition-all">
+              <button 
+                onClick={() => setMockCoords({ lat: 28.6441, lng: 77.1118 })} 
+                className="bg-white/80 backdrop-blur-md text-black px-6 py-3 rounded-2xl font-black text-xs shadow-2xl border border-white/20 uppercase tracking-widest hover:scale-105 hover:bg-white transition-all active:scale-95"
+              >
                 📍 Mock Rider
               </button>
           </div>

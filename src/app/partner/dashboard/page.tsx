@@ -3,7 +3,7 @@ import { signOut } from 'next-auth/react'
 import { LayoutDashboard, Car, Landmark, LogOut, Bell, User, MapPin as MapPinIcon } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useSocket } from '@/components/SocketProvider'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import DashboardStats from '@/components/partner/DashboardStats'
 import IncomingRideCard from '@/components/partner/IncomingRideCard'
@@ -122,6 +122,17 @@ export default function PartnerDashboard() {
     } else { alert("Invalid Verification Code."); }
   };
 
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeRide && mainContentRef.current) {
+        // Give the UI a moment to render before scrolling
+        setTimeout(() => {
+            mainContentRef.current?.scrollTo({ top: 300, behavior: 'smooth' });
+        }, 300);
+    }
+  }, [!!activeRide]);
+
   // Simulation Logic
   useEffect(() => {
     if (!isSimulating || !activeRide || !socket) return;
@@ -158,7 +169,7 @@ export default function PartnerDashboard() {
       </motion.div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 lg:p-12 overflow-y-auto relative z-10">
+      <div ref={mainContentRef} className="flex-1 p-6 lg:p-12 overflow-y-auto relative z-10">
         <div className="flex justify-between items-center mb-10">
           <div>
             <h2 className="text-4xl font-black tracking-tight">{activeTab === 'dashboard' ? 'Overview' : 'Earnings'}</h2>
@@ -179,10 +190,10 @@ export default function PartnerDashboard() {
         </div>
 
         {activeTab === 'dashboard' ? (
-        <div className="space-y-10">
-            <DashboardStats stats={stats} />
+        <div className="space-y-6">
+            {!activeRide && <DashboardStats stats={stats} />}
             
-            <div className="relative w-full h-[600px] rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl">
+            <div className={`relative w-full ${activeRide ? 'h-[400px]' : 'h-[600px]'} rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl transition-all duration-700`}>
                 <div className="absolute inset-0 z-0">
                     <LiveMap 
                         currentLocation={currentLocation} 
@@ -195,26 +206,26 @@ export default function PartnerDashboard() {
                 <div className="absolute bottom-8 left-8 right-8 z-20 flex justify-between items-end">
                     <div className="bg-black/40 backdrop-blur-3xl border border-white/10 p-5 px-7 rounded-[2rem] flex items-center gap-3">
                         <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center animate-pulse"><div className="w-3.5 h-3.5 bg-emerald-500 rounded-full" /></div>
-                        <div><p className="text-sm font-black text-white">{incomingRide ? 'New Request Found' : 'Waiting for Rides...'}</p></div>
+                        <div><p className="text-sm font-black text-white">{incomingRide ? 'New Request Found' : activeRide ? 'Heading to Pickup' : 'Waiting for Rides...'}</p></div>
                     </div>
                     <div onClick={() => currentLocation && setCurrentLocation({...currentLocation})} className="w-14 h-14 bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl flex items-center justify-center cursor-pointer transition-all"><MapPinIcon size={24} /></div>
                 </div>
 
                 <IncomingRideCard incomingRide={incomingRide} requestTimer={requestTimer} handleAcceptRide={handleAcceptRide} setIncomingRide={setIncomingRide} />
             </div>
+
+            <ActiveTripOverlay 
+              activeRide={activeRide} tripStatus={tripStatus} isSimulating={isSimulating} 
+              setIsSimulating={setIsSimulating} setActiveRide={setActiveRide} 
+              setIsVerified={setIsVerified} setOtpInput={setOtpInput}
+              isVerified={isVerified} otpInput={otpInput} handleVerifyOtp={handleVerifyOtp}
+              setTripStatus={setTripStatus}
+            />
         </div>
         ) : (
           <EarningsSection />
         )}
       </div>
-
-      <ActiveTripOverlay 
-        activeRide={activeRide} tripStatus={tripStatus} isSimulating={isSimulating} 
-        setIsSimulating={setIsSimulating} setActiveRide={setActiveRide} 
-        setIsVerified={setIsVerified} setOtpInput={setOtpInput}
-        isVerified={isVerified} otpInput={otpInput} handleVerifyOtp={handleVerifyOtp}
-        setTripStatus={setTripStatus}
-      />
     </div>
   )
 }

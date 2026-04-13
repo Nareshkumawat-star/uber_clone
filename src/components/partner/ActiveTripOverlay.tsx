@@ -24,24 +24,23 @@ export default function ActiveTripOverlay({
     if (!activeRide) return null;
 
     return (
-        <div className="fixed top-0 right-0 w-full md:w-96 h-full bg-white z-[60] shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
-            <div className="bg-black p-8 text-white">
+        <div className="w-full bg-white border-t border-gray-100 flex flex-col animate-in slide-in-from-bottom duration-500 rounded-t-[3rem] -mt-12 relative z-30 shadow-[0_-20px_50px_rgba(0,0,0,0.1)]">
+            <div className="bg-white p-10 text-black rounded-t-[3rem] border-b border-gray-50">
                 <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 bg-white/10 rounded-full">Active Trip</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 bg-gray-100 text-gray-500 rounded-full">Active Trip</span>
                     <div className="flex gap-2">
                         <button 
                             onClick={() => setIsSimulating(!isSimulating)} 
-                            className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-all ${isSimulating ? 'bg-amber-500 text-black' : 'bg-white/10 text-white/40'}`}
+                            className={`text-[10px] font-black uppercase px-4 py-1.5 rounded-full transition-all border ${isSimulating ? 'bg-amber-100 border-amber-200 text-amber-700' : 'bg-gray-50 border-gray-100 text-gray-400 hover:text-black hover:border-black'}`}
                         >
                             {isSimulating ? 'Stop Sim' : 'Simulate Drive'}
                         </button>
-                        <button onClick={() => {setActiveRide(null); setIsVerified(false); setOtpInput('')}} className="text-white/40 hover:text-white transition-all"><LogOut size={18} /></button>
                     </div>
                 </div>
-                <h2 className="text-3xl font-black mb-1">
+                <h2 className="text-4xl font-black mb-1 tracking-tight">
                     {tripStatus === 'approaching' ? 'Pick up Rider' : tripStatus === 'ongoing' ? 'In Progress' : 'Completed'}
                 </h2>
-                <p className="text-white/50 text-sm font-medium">Trip to {activeRide.destinationAddress.split(',')[0]}</p>
+                <p className="text-gray-400 text-sm font-medium">Trip to {activeRide.destinationAddress?.split(',')[0] || 'Destination'}</p>
             </div>
 
             <div className="flex-1 p-8 overflow-y-auto">

@@ -41,10 +41,16 @@ interface LiveMapProps {
 
 export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl, rideRequestLocation, isPartnerWaitingForOTP }: LiveMapProps) {
   const [mounted, setMounted] = useState(false)
+  const [hasLayout, setHasLayout] = useState(false)
   const [routeData, setRouteData] = useState<[number, number][]>([])
   const [driverToRiderRoute, setDriverToRiderRoute] = useState<[number, number][]>([])
 
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { 
+    setMounted(true);
+    // Give the browser a small window to calculate initial layout dimensions
+    const timer = setTimeout(() => setHasLayout(true), 150);
+    return () => clearTimeout(timer);
+  }, [])
 
   const icons = useMemo(() => ({
     blueDot: createBlueDotIcon(),
@@ -58,7 +64,7 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
   const fetchRoute = async (start: any, end: any, setter: any) => {
     if (!start || !end) { setter([]); return; }
     try {
-        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
+        const res = await fetch(`https://router.project-osrm.org/osrm/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
         const data = await res.json()
         if (data.routes?.[0]) {
             setter(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]))
@@ -69,7 +75,11 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
   useEffect(() => { fetchRoute(currentLocation, destinationLocation, setRouteData) }, [currentLocation?.lat, destinationLocation?.lat])
   useEffect(() => { fetchRoute(driverLocation, currentLocation, setDriverToRiderRoute) }, [driverLocation?.lat, currentLocation?.lat])
 
-  if (!mounted) return <div className="w-full h-full bg-gray-50 flex items-center justify-center animate-pulse rounded-3xl" />
+  if (!mounted || !hasLayout) return (
+    <div className="w-full h-full bg-white/5 flex items-center justify-center animate-pulse rounded-[3rem] border border-white/5">
+        <div className="w-8 h-8 rounded-full border-4 border-white/10 border-t-white/30 animate-spin" />
+    </div>
+  );
 
   const mapCenter: [number, number] = currentLocation ? [currentLocation.lat, currentLocation.lng] : [28.6139, 77.2090]
   const destCoords: [number, number] | null = destinationLocation ? [destinationLocation.lat, destinationLocation.lng] : null
@@ -77,8 +87,14 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
   const requestCoords: [number, number] | null = rideRequestLocation ? [rideRequestLocation.lat, rideRequestLocation.lng] : null
 
   return (
-    <div className="w-full h-full relative z-0 shadow-inner rounded-3xl overflow-hidden border border-gray-200">
-      <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}>
+    <div className="w-full h-full relative z-0 shadow-inner rounded-[3rem] overflow-hidden">
+      <MapContainer 
+        key={mounted ? 'map-active' : 'map-idle'}
+        center={mapCenter} 
+        zoom={14} 
+        style={{ height: '100%', width: '100%' }}
+        zoomControl={false}
+      >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         
         {currentLocation && <Marker position={[currentLocation.lat, currentLocation.lng]} icon={icons.blueDot} />}

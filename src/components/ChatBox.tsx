@@ -22,20 +22,21 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
   const [isOpen, setIsOpen] = useState(variant === 'inline' ? true : isOpenDefault);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
+  const [isOpponentTyping, setIsOpponentTyping] = useState(false);
   const { socket } = useSocket();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<any>(null);
 
   const isInline = variant === 'inline';
   
   // Auto-scroll to bottom of chat
   useEffect(() => {
      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isOpen]);
+  }, [messages, isOpen, isOpponentTyping]);
 
   useEffect(() => {
     if (!socket) return;
     
-    // Load local storage chat history
     const historyKey = `chat_${rideId}`;
     const saved = localStorage.getItem(historyKey);
     if (saved) {
@@ -56,9 +57,36 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
       }
     };
 
+    const typingHandler = (data: { rideId: string, role: string, isTyping: boolean }) => {
+        if (data.rideId === rideId && data.role !== role) {
+            setIsOpponentTyping(data.isTyping);
+        }
+    };
+
     socket.on('receive_message', messageHandler);
-    return () => { socket.off('receive_message', messageHandler); };
+    socket.on('receive_typing', typingHandler);
+    return () => { 
+        socket.off('receive_message', messageHandler); 
+        socket.off('receive_typing', typingHandler);
+    };
   }, [socket, rideId, role, isOpen, isInline]);
+
+  const handleTyping = (text: string) => {
+      setInputText(text);
+      if (!socket) return;
+
+      // Only emit typing start if we weren't already typing
+      if (text.length > 0 && !inputText) {
+          socket.emit('is_typing', { rideId, role, isTyping: true });
+      } else if (text.length === 0) {
+          socket.emit('is_typing', { rideId, role, isTyping: false });
+      }
+
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+          socket.emit('is_typing', { rideId, role, isTyping: false });
+      }, 3000);
+  };
 
   const handleSendMessage = (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
@@ -74,13 +102,18 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
     };
 
     socket.emit('send_message', msgPayload);
-    if (!customText) setInputText('');
+    socket.emit('is_typing', { rideId, role, isTyping: false });
+    
+    // Clear input local state
+    if (!customText) {
+        setInputText('');
+    }
   };
 
   const opponentName = role === 'user' ? (partnerName || 'Partner') : (partnerName || 'Rider');
 
   const chatContent = (
-    <div className={`${isInline ? 'w-full border-t border-gray-100 flex-1' : 'bg-white rounded-t-3xl rounded-bl-3xl rounded-br-md shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 w-[320px] md:w-[360px] mb-4'} flex flex-col overflow-hidden transform transition-all`}>
+    <div className={`${isInline ? 'w-full border-t border-gray-100 flex-1' : 'bg-white rounded-t-3xl rounded-bl-3xl rounded-br-md shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 w-[320px] md:w-[360px] mb-4'} flex flex-col overflow-hidden`}>
       
       {!isInline && (
         <div className="bg-[#0A0A0A] text-white p-4 flex items-center justify-between">
@@ -100,14 +133,11 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
       )}
 
       {/* Messages Area */}
-      <div className={`flex-1 bg-[#F9FAFB] p-4 ${isInline ? 'min-h-[250px]' : 'h-[300px]'} overflow-y-auto flex flex-col gap-3`}>
+      <div className={`flex-1 bg-[#F9FAFB] p-4 ${isInline ? 'min-h-[250px]' : 'h-[300px]'} overflow-y-auto flex flex-col gap-3 relative`}>
          {messages.length === 0 ? (
            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-center opacity-60">
               <MessageSquare size={32} className="mb-2" />
               <p className="text-sm font-medium">Coordinate your ride with {opponentName}</p>
-              <div className="mt-4 px-6 py-3 bg-blue-50 text-blue-500 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-blue-100">
-                 Default: "Hello! I am ready for the ride."
-              </div>
            </div>
          ) : (
            messages.map((msg, idx) => {
@@ -116,13 +146,26 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
                 <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                    <div className={`max-w-[80%] p-3 rounded-2xl ${isMe ? 'bg-black text-white rounded-br-sm' : 'bg-white border border-gray-200 text-black rounded-bl-sm shadow-sm'}`}>
                       <p className="text-sm">{msg.text}</p>
-                      <p className={`text-[10px] mt-1 font-medium ${isMe ? 'text-white/50 text-right' : 'text-gray-400'}`}>
-                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                      <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end text-white/50' : 'text-gray-400'}`}>
+                         <p className="text-[10px] font-medium">
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         </p>
+                         {isMe && <div className="text-[10px]">✓</div>}
+                      </div>
                    </div>
                 </div>
               );
            })
+         )}
+         
+         {isOpponentTyping && (
+           <div className="flex justify-start animate-pulse">
+              <div className="bg-gray-100 border border-gray-200 px-4 py-2 rounded-2xl rounded-bl-sm">
+                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">
+                    {opponentName} is typing...
+                 </p>
+              </div>
+           </div>
          )}
          <div ref={messagesEndRef} />
       </div>
@@ -136,6 +179,7 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
          ]).map((text, idx) => (
            <button 
               key={idx}
+              type="button"
               onClick={() => handleSendMessage(undefined, text)}
               className="px-4 py-1.5 bg-gray-100 hover:bg-black hover:text-white text-gray-700 text-[11px] font-bold rounded-full transition-all whitespace-nowrap shrink-0 border border-gray-200/50"
            >
@@ -145,22 +189,28 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSendMessage} className="bg-white p-3 border-t border-gray-100 flex items-center gap-2">
+      <div className="bg-white p-3 border-t border-gray-100 flex items-center gap-2">
          <input 
             type="text" 
             value={inputText}
-            onChange={e => setInputText(e.target.value)}
+            onChange={e => handleTyping(e.target.value)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                    handleSendMessage();
+                }
+            }}
             placeholder="Type a message..."
             className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-3 text-sm outline-none focus:border-black transition-colors"
          />
          <button 
-            type="submit" 
+            type="button"
+            onClick={() => handleSendMessage()}
             disabled={!inputText.trim()}
             className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 transition-colors shrink-0 hover:bg-gray-900 active:scale-95"
          >
             <Send size={16} className="-ml-0.5" />
          </button>
-      </form>
+      </div>
     </div>
   );
 
