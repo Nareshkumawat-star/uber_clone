@@ -18,29 +18,24 @@ interface ActiveTripOverlayProps {
 }
 
 export default function ActiveTripOverlay({
-    activeRide, tripStatus, isSimulating, setIsSimulating, setActiveRide, setIsVerified, 
+    activeRide, tripStatus, isSimulating, setIsSimulating, setActiveRide, setIsVerified,
     setOtpInput, isVerified, otpInput, handleVerifyOtp, setTripStatus
 }: ActiveTripOverlayProps) {
     if (!activeRide) return null;
 
     return (
-        <div className="w-full bg-white border-t border-gray-100 flex flex-col animate-in slide-in-from-bottom duration-500 rounded-t-[3rem] -mt-12 relative z-30 shadow-[0_-20px_50px_rgba(0,0,0,0.1)]">
-            <div className="bg-white p-10 text-black rounded-t-[3rem] border-b border-gray-50">
+        <div className="w-full flex flex-col bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-gray-100">
+            <div className="bg-black p-8 text-white">
                 <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 bg-gray-100 text-gray-500 rounded-full">Active Trip</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 bg-white/10 rounded-full">Active Trip</span>
                     <div className="flex gap-2">
-                        <button 
-                            onClick={() => setIsSimulating(!isSimulating)} 
-                            className={`text-[10px] font-black uppercase px-4 py-1.5 rounded-full transition-all border ${isSimulating ? 'bg-amber-100 border-amber-200 text-amber-700' : 'bg-gray-50 border-gray-100 text-gray-400 hover:text-black hover:border-black'}`}
-                        >
-                            {isSimulating ? 'Stop Sim' : 'Simulate Drive'}
-                        </button>
+                        {/* Removed simulation/logout buttons */}
                     </div>
                 </div>
-                <h2 className="text-4xl font-black mb-1 tracking-tight">
+                <h2 className="text-3xl font-black mb-1">
                     {tripStatus === 'approaching' ? 'Pick up Rider' : tripStatus === 'ongoing' ? 'In Progress' : 'Completed'}
                 </h2>
-                <p className="text-gray-400 text-sm font-medium">Trip to {activeRide.destinationAddress?.split(',')[0] || 'Destination'}</p>
+                <p className="text-white/50 text-sm font-medium">Trip to {activeRide.destinationAddress?.split(',')[0] || 'Destination'}</p>
             </div>
 
             <div className="flex-1 p-8 overflow-y-auto">
@@ -83,11 +78,11 @@ export default function ActiveTripOverlay({
                     </div>
 
                     <div className="w-full flex-1 border border-gray-100 rounded-[2rem] overflow-hidden min-h-[350px] flex flex-col">
-                        <ChatBox 
-                            role="partner" 
+                        <ChatBox
+                            role="partner"
                             variant="inline"
-                            rideId={activeRide.otp || 'dummy-ride-123'} 
-                            partnerName={activeRide.riderName || 'Rahul Sharma'} 
+                            rideId={activeRide.otp || 'dummy-ride-123'}
+                            partnerName={activeRide.riderName || 'Rahul Sharma'}
                         />
                     </div>
 
@@ -103,10 +98,10 @@ export default function ActiveTripOverlay({
 
                             <div className="flex gap-4 justify-center mb-10">
                                 {Array(4).fill(0).map((_, i) => (
-                                    <input 
+                                    <input
                                         key={i}
                                         id={`otp-${i}`}
-                                        type="text" 
+                                        type="text"
                                         maxLength={1}
                                         value={otpInput[i] || ''}
                                         onChange={(e) => {
@@ -130,7 +125,7 @@ export default function ActiveTripOverlay({
                                 ))}
                             </div>
 
-                            <button 
+                            <button
                                 onClick={handleVerifyOtp}
                                 disabled={otpInput.length !== 4}
                                 className="w-full bg-blue-600 text-white rounded-xl py-4 font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
@@ -148,7 +143,7 @@ export default function ActiveTripOverlay({
                                 Rider identity verified. Proceed to destination.
                             </p>
 
-                            <button 
+                            <button
                                 onClick={() => {
                                     setTripStatus('approaching');
                                     setActiveRide(null);

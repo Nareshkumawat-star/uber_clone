@@ -1,13 +1,14 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Menu, X, Bell, User as UserIcon, Wallet, MapPin as MapPinIcon, ChevronLeft } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useSocket } from './SocketProvider'
 import BookingForm from './user/BookingForm'
 import RideStatusOverlay from './user/RideStatusOverlay'
 
-const LiveMap = dynamic(() => import('@/components/LiveMap'), { 
+const LiveMap = dynamic(() => import('@/components/LiveMap'), {
     ssr: false,
     loading: () => (
         <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-3xl border border-gray-100">
@@ -30,6 +31,7 @@ export default function UserDashboard() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedDestination, setSelectedDestination] = useState<any>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const lastGeocodedCoords = useRef<{lat: number, lng: number} | null>(null);
 
   const vehicles = [
@@ -142,39 +144,41 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row pt-0">
-      <div className="z-20 relative bg-white">
-        {bookingStatus === 'idle' ? (
-            <div className="pt-20 h-full">
-            <BookingForm 
-              pickup={pickup} setPickup={setPickup} destQuery={destQuery} setDestQuery={setDestQuery}
-              handleRecenter={() => { setMockCoords(null); lastGeocodedCoords.current = null; }}
-              loading={loading} isSearching={isSearching} suggestions={suggestions}
-              handleSelectSuggestion={(place) => { setDestQuery(place.display_name); setSelectedDestination({ ...place, lat: parseFloat(place.lat), lng: parseFloat(place.lon) }); setSuggestions([]); }}
-              selectedDestination={selectedDestination} setSelectedDestination={setSelectedDestination}
-              vehicles={vehicles} activeVehicleId={activeVehicleId} setActiveVehicleId={setActiveVehicleId}
-              handleBookRide={handleBookRide}
-            />
-            </div>
-        ) : (
-            <RideStatusOverlay 
-              bookingStatus={bookingStatus} activeVehicle={activeVehicle} 
-              assignedPartner={assignedPartner} currentOtp={currentOtp}
-              setBookingStatus={setBookingStatus} setIsTripStarted={setIsTripStarted}
-            />
-        )}
+    <div className="h-screen bg-white flex overflow-hidden select-none">
+      {/* Sidebar - Chat / Info Left side */}
+      <div className="hidden md:block w-[500px] h-full bg-white z-40 relative border-r border-gray-100 overflow-y-auto scrollbar-hide">
+          <div className="flex flex-col">
+              {bookingStatus === 'idle' ? (
+                  <BookingForm 
+                    pickup={pickup} setPickup={setPickup} destQuery={destQuery} setDestQuery={setDestQuery}
+                    handleRecenter={() => { setMockCoords(null); lastGeocodedCoords.current = null; }}
+                    loading={loading} isSearching={isSearching} suggestions={suggestions}
+                    handleSelectSuggestion={(place) => { setDestQuery(place.display_name); setSelectedDestination({ ...place, lat: parseFloat(place.lat), lng: parseFloat(place.lon) }); setSuggestions([]); }}
+                    selectedDestination={selectedDestination} setSelectedDestination={setSelectedDestination}
+                    vehicles={vehicles} activeVehicleId={activeVehicleId} setActiveVehicleId={setActiveVehicleId}
+                    handleBookRide={handleBookRide}
+                  />
+              ) : (
+                  <RideStatusOverlay 
+                    bookingStatus={bookingStatus} activeVehicle={activeVehicle} 
+                    assignedPartner={assignedPartner} currentOtp={currentOtp}
+                    setBookingStatus={setBookingStatus} setIsTripStarted={setIsTripStarted}
+                  />
+              )}
+          </div>
       </div>
 
-      {/* Map Section */}
-      <div className="flex-1 bg-gray-100 relative h-[50vh] md:h-auto z-10 border-l border-gray-100 shadow-2xl overflow-hidden">
-          <div className="absolute inset-0 z-0">
+      {/* Content - Map Right side */}
+      <div className="flex-1 relative z-10 bg-gray-50">
+          <div className="absolute inset-0">
              <LiveMap 
                 currentLocation={isTripStarted && driverLocation ? driverLocation : (mockCoords || coordinates)} 
-                destinationLocation={bookingStatus === 'accepted' && !isTripStarted ? null : selectedDestination} 
-                driverLocation={driverLocation}
+                destinationLocation={selectedDestination} 
+                rideRequestLocation={mockCoords || coordinates}
                 driverIconUrl={activeVehicle?.img}
              />
           </div>
+          
           <div className="absolute bottom-10 right-10 z-20">
               <button 
                 onClick={() => setMockCoords({ lat: 28.6441, lng: 77.1118 })} 

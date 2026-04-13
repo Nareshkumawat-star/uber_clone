@@ -47,8 +47,7 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
 
   useEffect(() => { 
     setMounted(true);
-    // Give the browser a small window to calculate initial layout dimensions
-    const timer = setTimeout(() => setHasLayout(true), 150);
+    const timer = setTimeout(() => setHasLayout(true), 200);
     return () => clearTimeout(timer);
   }, [])
 
@@ -62,18 +61,41 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
 
   // Route calculation utility
   const fetchRoute = async (start: any, end: any, setter: any) => {
-    if (!start || !end) { setter([]); return; }
+    if (!start?.lat || !end?.lat) { setter([]); return; }
     try {
         const res = await fetch(`https://router.project-osrm.org/osrm/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
         const data = await res.json()
         if (data.routes?.[0]) {
             setter(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]))
+        } else {
+            setter([]);
         }
-    } catch (err) {}
+    } catch (err) {
+        console.error("Routing error:", err);
+        setter([]);
+    }
   }
 
-  useEffect(() => { fetchRoute(currentLocation, destinationLocation, setRouteData) }, [currentLocation?.lat, destinationLocation?.lat])
-  useEffect(() => { fetchRoute(driverLocation, currentLocation, setDriverToRiderRoute) }, [driverLocation?.lat, currentLocation?.lat])
+  // Effect for Trip Route (Pickup to Destination)
+  useEffect(() => { 
+    if (rideRequestLocation && destinationLocation) {
+        fetchRoute(rideRequestLocation, destinationLocation, setRouteData);
+    } else if (currentLocation && destinationLocation) {
+        fetchRoute(currentLocation, destinationLocation, setRouteData);
+    } else {
+        setRouteData([]);
+    }
+  }, [currentLocation?.lat, currentLocation?.lng, destinationLocation?.lat, destinationLocation?.lng, rideRequestLocation?.lat, rideRequestLocation?.lng])
+
+  // Effect for Driver Route (Driver to Pickup/Rider)
+  useEffect(() => { 
+    if (driverLocation) {
+        const nextTarget = rideRequestLocation || currentLocation;
+        fetchRoute(driverLocation, nextTarget, setDriverToRiderRoute);
+    } else {
+        setDriverToRiderRoute([]);
+    }
+  }, [driverLocation?.lat, driverLocation?.lng, currentLocation?.lat, currentLocation?.lng, rideRequestLocation?.lat, rideRequestLocation?.lng])
 
   if (!mounted || !hasLayout) return (
     <div className="w-full h-full bg-white/5 flex items-center justify-center animate-pulse rounded-[3rem] border border-white/5">
@@ -102,8 +124,35 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
         {destinationLocation && !isPartnerWaitingForOTP && <Marker position={[destinationLocation.lat, destinationLocation.lng]} icon={icons.destSquare} />}
         {driverLocation && <Marker position={[driverLocation.lat, driverLocation.lng]} icon={icons.driver} />}
 
-        {routeData.length > 0 && <Polyline positions={routeData} pathOptions={{ color: '#3B82F6', weight: 5, opacity: 0.8 }} />}
-        {driverToRiderRoute.length > 0 && <Polyline positions={driverToRiderRoute} pathOptions={{ color: '#000000', weight: 3, opacity: 0.4, dashArray: '10, 10' }} />}
+        {/* Primary Trip Path (Blue) */}
+        {routeData.length > 0 ? (
+          <Polyline positions={routeData} pathOptions={{ color: '#3B82F6', weight: 6, opacity: 0.8 }} />
+        ) : (
+          destinationLocation && (rideRequestLocation || currentLocation) && (
+            <Polyline 
+              positions={[
+                [rideRequestLocation?.lat || currentLocation!.lat, rideRequestLocation?.lng || currentLocation!.lng],
+                [destinationLocation.lat, destinationLocation.lng]
+              ]} 
+              pathOptions={{ color: '#3B82F6', weight: 4, opacity: 0.4, dashArray: '10, 10' }} 
+            />
+          )
+        )}
+
+        {/* Secondary Driver Path (Black) */}
+        {driverToRiderRoute.length > 0 ? (
+          <Polyline positions={driverToRiderRoute} pathOptions={{ color: '#000000', weight: 4, opacity: 0.4, dashArray: '10, 10' }} />
+        ) : (
+          driverLocation && (rideRequestLocation || currentLocation) && (
+            <Polyline 
+              positions={[
+                [driverLocation.lat, driverLocation.lng],
+                [rideRequestLocation?.lat || currentLocation!.lat, rideRequestLocation?.lng || currentLocation!.lng]
+              ]} 
+              pathOptions={{ color: '#000000', weight: 2, opacity: 0.2, dashArray: '5, 5' }} 
+            />
+          )
+        )}
 
         <MapController center={mapCenter} destination={destCoords} driver={driverCoords} request={requestCoords} />
       </MapContainer>

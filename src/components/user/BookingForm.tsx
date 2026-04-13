@@ -21,34 +21,34 @@ interface BookingFormProps {
 }
 
 export default function BookingForm({
-    pickup, setPickup, destQuery, setDestQuery, handleRecenter, loading, isSearching, 
+    pickup, setPickup, destQuery, setDestQuery, handleRecenter, loading, isSearching,
     suggestions, handleSelectSuggestion, selectedDestination, setSelectedDestination,
     vehicles, activeVehicleId, setActiveVehicleId, handleBookRide
 }: BookingFormProps) {
     const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
     return (
-        <div className="w-full md:w-[450px] lg:w-[500px] bg-white flex flex-col shadow-2xl z-20 h-[calc(100vh-80px)]">
+        <div className="w-full bg-white flex flex-col pt-0">
             {/* Input Section */}
             <div className="p-6 md:p-8 bg-white border-b border-gray-100 relative z-30">
                 <h1 className="text-3xl font-black text-black tracking-tight mb-8">Get a ride</h1>
-                
+
                 <div className="relative">
                     <div className="absolute left-[20px] top-[24px] bottom-[28px] w-0.5 bg-black/10 z-0" />
-                    
+
                     <div className="relative z-10 flex items-center gap-4 mb-4">
                         <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center shrink-0 shadow-lg">
                             <Navigation2 size={16} className="text-white" />
                         </div>
                         <div className="flex-1 bg-gray-50 rounded-2xl border border-gray-100 flex items-center px-4 py-3 group hover:border-black/20 hover:bg-gray-100 transition-all focus-within:border-black focus-within:bg-white focus-within:ring-4 focus-within:ring-black/5">
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 className="bg-transparent w-full outline-none text-black font-semibold text-sm placeholder:text-gray-400 placeholder:font-medium"
                                 placeholder="Add a pickup location"
                                 value={pickup}
                                 onChange={(e) => setPickup(e.target.value)}
                             />
-                            <button 
+                            <button
                                 onClick={handleRecenter}
                                 title="Use current location"
                                 className="p-2 hover:bg-black/5 rounded-full transition-all text-black/40 hover:text-black"
@@ -65,8 +65,8 @@ export default function BookingForm({
                                 <MapPin size={16} className="text-black" />
                             </div>
                             <div className="flex-1 bg-gray-50 rounded-2xl border border-gray-100 flex items-center px-4 py-3 group hover:border-black/20 hover:bg-gray-100 transition-all focus-within:border-black focus-within:bg-white focus-within:ring-4 focus-within:ring-black/5">
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     className="bg-transparent w-full outline-none text-black font-semibold text-sm placeholder:text-gray-400 placeholder:font-medium"
                                     placeholder="Enter destination"
                                     value={destQuery}
@@ -82,8 +82,8 @@ export default function BookingForm({
                         {suggestions.length > 0 && (
                             <div className="absolute left-[56px] right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto">
                                 {suggestions.map((place, idx) => (
-                                    <div 
-                                        key={idx} 
+                                    <div
+                                        key={idx}
                                         onClick={() => handleSelectSuggestion(place)}
                                         className="p-4 hover:bg-gray-50 cursor-pointer flex gap-3 border-b border-gray-50 last:border-0"
                                     >
@@ -107,12 +107,12 @@ export default function BookingForm({
                     <>
                         <div className="flex-1 overflow-y-auto p-6 space-y-4">
                             <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-2">Available Rides</p>
-                            
+
                             {vehicles.map((v) => {
                                 const isSelected = activeVehicleId === v.id;
                                 return (
-                                    <div 
-                                        key={v.id} 
+                                    <div
+                                        key={v.id}
                                         onClick={() => setActiveVehicleId(v.id)}
                                         className={`p-4 rounded-[2rem] border transition-all cursor-pointer flex items-center justify-between group ${isSelected ? 'bg-white border-black shadow-xl ring-1 ring-black' : 'bg-white border-transparent shadow-sm hover:border-black/10'}`}
                                     >
@@ -145,7 +145,7 @@ export default function BookingForm({
                                 </div>
                                 <ChevronRight size={16} className="text-gray-400" />
                             </div>
-                            <button 
+                            <button
                                 onClick={handleBookRide}
                                 className="w-full py-4 bg-black text-white rounded-2xl font-black text-lg hover:bg-gray-900 transition-all active:scale-95 shadow-xl shadow-black/20 flex items-center justify-center gap-2"
                             >
