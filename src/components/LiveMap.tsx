@@ -1,12 +1,10 @@
 'use client'
-
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { useMemo } from 'react'
+import { createBlueDotIcon, createDepartureIcon, createDestinationSquareIcon, createRequestIcon, createDriverIcon } from './MapIcons'
 
-// Fix for default Leaflet icons safely
 if (typeof window !== 'undefined') {
   delete (L.Icon.Default.prototype as any)._getIconUrl
   L.Icon.Default.mergeOptions({
@@ -16,57 +14,15 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Custom Uber-like dark theme marker
-const customIcon = new L.Icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/5717/5717498.png', 
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40],
-})
-
-const driverIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -22],
-})
-
-const requestIcon = new L.DivIcon({
-  className: 'custom-div-icon',
-  html: `
-    <div style="position: relative; width: 44px; height: 44px;">
-      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #3B82F6; border-radius: 50%; animation: ripple 1.5s infinite; opacity: 0.6;"></div>
-      <div style="position: absolute; top: 10px; left: 10px; width: 24px; height: 24px; background: #3B82F6; border-radius: 50%; border: 3px solid white; display: flex; items-center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-        <svg viewBox="0 0 24 24" width="12" height="12" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-      </div>
-    </div>
-    <style>
-      @keyframes ripple {
-        0% { transform: scale(0.5); opacity: 0.8; }
-        100% { transform: scale(3); opacity: 0; }
-      }
-    </style>
-  `,
-  iconSize: [44, 44],
-  iconAnchor: [22, 22],
-});
-
-function MapController({ center, destination, driver, request }: { 
-    center: [number, number], 
-    destination?: [number, number] | null,
-    driver?: [number, number] | null,
-    request?: [number, number] | null
-}) {
+function MapController({ center, destination, driver, request }: any) {
   const map = useMap()
   useEffect(() => {
     const points: [number, number][] = [center]
     if (destination) points.push(destination)
     if (driver) points.push(driver)
     if (request) points.push(request)
-    
     if (points.length > 1) {
-      const bounds = L.latLngBounds(points)
-      map.fitBounds(bounds, { padding: [80, 80] })
+      map.fitBounds(L.latLngBounds(points), { padding: [80, 80] })
     } else {
       map.setView(center, 15)
     }
@@ -80,180 +36,62 @@ interface LiveMapProps {
   driverLocation?: { lat: number; lng: number } | null
   driverIconUrl?: string | null
   rideRequestLocation?: { lat: number; lng: number } | null
+  isPartnerWaitingForOTP?: boolean
 }
 
-export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl, rideRequestLocation }: LiveMapProps) {
-  const [mounted, setMounted] = useState(false);
+export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl, rideRequestLocation, isPartnerWaitingForOTP }: LiveMapProps) {
+  const [mounted, setMounted] = useState(false)
   const [routeData, setRouteData] = useState<[number, number][]>([])
   const [driverToRiderRoute, setDriverToRiderRoute] = useState<[number, number][]>([])
 
-  const memoizedDriverIcon = useMemo(() => new L.Icon({
-    iconUrl: driverIconUrl || 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -22],
-  }), [driverIconUrl]);
+  useEffect(() => { setMounted(true) }, [])
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const icons = useMemo(() => ({
+    blueDot: createBlueDotIcon(),
+    departure: createDepartureIcon(),
+    destSquare: createDestinationSquareIcon(),
+    request: createRequestIcon(),
+    driver: createDriverIcon(driverIconUrl || null)
+  }), [driverIconUrl])
 
-  // Fetch route between pickup and destination
-  useEffect(() => {
-    if (!currentLocation || !destinationLocation) {
-        setRouteData([]);
-        return;
-    }
-
-    const fetchRoute = async () => {
-        try {
-            const url = `https://router.project-osrm.org/route/v1/driving/${currentLocation.lng},${currentLocation.lat};${destinationLocation.lng},${destinationLocation.lat}?overview=full&geometries=geojson`;
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.routes && data.routes[0]) {
-                const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
-                setRouteData(coords);
-            }
-        } catch (err) {
-            console.error("Routing error:", err);
+  // Route calculation utility
+  const fetchRoute = async (start: any, end: any, setter: any) => {
+    if (!start || !end) { setter([]); return; }
+    try {
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
+        const data = await res.json()
+        if (data.routes?.[0]) {
+            setter(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]))
         }
-    };
-
-    fetchRoute();
-  }, [currentLocation?.lat, currentLocation?.lng, destinationLocation?.lat, destinationLocation?.lng]);
-
-  // Fetch route between Driver and Pickup
-  useEffect(() => {
-    if (!driverLocation || !currentLocation) {
-        setDriverToRiderRoute([]);
-        return;
-    }
-
-    const fetchDriverRoute = async () => {
-        try {
-            const url = `https://router.project-osrm.org/route/v1/driving/${driverLocation.lng},${driverLocation.lat};${currentLocation.lng},${currentLocation.lat}?overview=full&geometries=geojson`;
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.routes && data.routes[0]) {
-                const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
-                setDriverToRiderRoute(coords);
-            }
-        } catch (err) {
-            console.error("Driver Routing error:", err);
-        }
-    };
-
-    fetchDriverRoute();
-  }, [driverLocation?.lat, driverLocation?.lng, currentLocation?.lat, currentLocation?.lng]);
-
-  // Default fallback to center of Delhi, India if no location
-  const defaultCenter: [number, number] = [28.6139, 77.2090]
-  
-  const mapCenter: [number, number] = currentLocation 
-    ? [currentLocation.lat, currentLocation.lng] 
-    : defaultCenter
-
-  const destCoords: [number, number] | null = destinationLocation
-    ? [destinationLocation.lat, destinationLocation.lng]
-    : null
-
-  const driverCoords: [number, number] | null = driverLocation
-    ? [driverLocation.lat, driverLocation.lng]
-    : null
-
-  const requestCoords: [number, number] | null = rideRequestLocation
-    ? [rideRequestLocation.lat, rideRequestLocation.lng]
-    : null
-
-  if (!mounted) {
-    return (
-      <div className="w-full h-full relative z-0 shadow-inner rounded-3xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-4 border-gray-200 border-t-black animate-spin" />
-      </div>
-    );
+    } catch (err) {}
   }
+
+  useEffect(() => { fetchRoute(currentLocation, destinationLocation, setRouteData) }, [currentLocation?.lat, destinationLocation?.lat])
+  useEffect(() => { fetchRoute(driverLocation, currentLocation, setDriverToRiderRoute) }, [driverLocation?.lat, currentLocation?.lat])
+
+  if (!mounted) return <div className="w-full h-full bg-gray-50 flex items-center justify-center animate-pulse rounded-3xl" />
+
+  const mapCenter: [number, number] = currentLocation ? [currentLocation.lat, currentLocation.lng] : [28.6139, 77.2090]
+  const destCoords: [number, number] | null = destinationLocation ? [destinationLocation.lat, destinationLocation.lng] : null
+  const driverCoords: [number, number] | null = driverLocation ? [driverLocation.lat, driverLocation.lng] : null
+  const requestCoords: [number, number] | null = rideRequestLocation ? [rideRequestLocation.lat, rideRequestLocation.lng] : null
 
   return (
     <div className="w-full h-full relative z-0 shadow-inner rounded-3xl overflow-hidden border border-gray-200">
-      <MapContainer 
-        center={mapCenter} 
-        zoom={14} 
-        scrollWheelZoom={true} 
-        style={{ height: '100%', width: '100%', zIndex: 0 }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" // Modern clear map tiles
-        />
+      <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}>
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         
-        {currentLocation && (
-          <Marker position={[currentLocation.lat, currentLocation.lng]} icon={customIcon}>
-            <Popup>
-              <div className="font-bold text-center text-black">Your Current Location</div>
-            </Popup>
-          </Marker>
-        )}
+        {currentLocation && <Marker position={[currentLocation.lat, currentLocation.lng]} icon={icons.blueDot} />}
+        {rideRequestLocation && <Marker position={[rideRequestLocation.lat, rideRequestLocation.lng]} icon={isPartnerWaitingForOTP ? icons.departure : icons.request} />}
+        {destinationLocation && !isPartnerWaitingForOTP && <Marker position={[destinationLocation.lat, destinationLocation.lng]} icon={icons.destSquare} />}
+        {driverLocation && <Marker position={[driverLocation.lat, driverLocation.lng]} icon={icons.driver} />}
 
-        {rideRequestLocation && (
-          <Marker position={[rideRequestLocation.lat, rideRequestLocation.lng]} icon={requestIcon}>
-             <Popup>
-              <div className="font-bold text-center text-black">Rider's Pickup Point</div>
-            </Popup>
-          </Marker>
-        )}
-
-        {destinationLocation && (
-          <Marker position={[destinationLocation.lat, destinationLocation.lng]}>
-             <Popup>
-              <div className="font-bold text-center text-black">Destination</div>
-            </Popup>
-          </Marker>
-        )}
-
-        {/* Main Trip Path (Pickup -> Destination) */}
-        {routeData.length > 0 && (
-            <Polyline 
-                positions={routeData} 
-                pathOptions={{ 
-                    color: '#3B82F6', 
-                    weight: 5, 
-                    opacity: 0.8,
-                    lineJoin: 'round'
-                }} 
-            />
-        )}
-
-        {/* Driver Approach Path (Driver -> Pickup) */}
-        {driverToRiderRoute.length > 0 && (
-            <Polyline 
-                positions={driverToRiderRoute} 
-                pathOptions={{ 
-                    color: '#000000', 
-                    weight: 3, 
-                    opacity: 0.4,
-                    dashArray: '10, 10',
-                    lineJoin: 'round'
-                }} 
-            />
-        )}
-
-        {driverLocation && (
-          <Marker 
-            position={[driverLocation.lat, driverLocation.lng]} 
-            icon={memoizedDriverIcon}
-          >
-             <Popup>
-              <div className="font-bold text-center text-black">Your Partner</div>
-            </Popup>
-          </Marker>
-        )}
+        {routeData.length > 0 && <Polyline positions={routeData} pathOptions={{ color: '#3B82F6', weight: 5, opacity: 0.8 }} />}
+        {driverToRiderRoute.length > 0 && <Polyline positions={driverToRiderRoute} pathOptions={{ color: '#000000', weight: 3, opacity: 0.4, dashArray: '10, 10' }} />}
 
         <MapController center={mapCenter} destination={destCoords} driver={driverCoords} request={requestCoords} />
       </MapContainer>
-
-      {/* Overlay gradient to match dark theme */}
-      <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-[1000]" />
-      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-[1000]" />
+      <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-black/5 to-transparent pointer-events-none" />
     </div>
   )
 }
