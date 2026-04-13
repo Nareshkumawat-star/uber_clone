@@ -63,12 +63,23 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
   const fetchRoute = async (start: any, end: any, setter: any) => {
     if (!start?.lat || !end?.lat) { setter([]); return; }
     try {
-        const res = await fetch(`https://router.project-osrm.org/osrm/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
-        const data = await res.json()
+        // Using a more stable mirror (OpenStreetMap.de) instead of the OSRM demo server
+        const mirrorUrl = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+        const res = await fetch(mirrorUrl);
+        const data = await res.json();
+        
         if (data.routes?.[0]) {
             setter(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]))
         } else {
-            setter([]);
+            // Secondary fallback mirror if the first one fails
+            const backupUrl = `https://router.project-osrm.org/osrm/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+            const backupRes = await fetch(backupUrl);
+            const backupData = await backupRes.json();
+            if (backupData.routes?.[0]) {
+                setter(backupData.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]))
+            } else {
+                setter([]);
+            }
         }
     } catch (err) {
         console.error("Routing error:", err);
