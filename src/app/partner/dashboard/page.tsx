@@ -1,6 +1,6 @@
 'use client'
 import { signOut } from 'next-auth/react'
-import { LayoutDashboard, Car, Landmark, LogOut, Bell, User, MapPin as MapPinIcon, ChevronRight, ChevronLeft, Zap, Target, ArrowUpRight, Wallet, Settings, Menu } from 'lucide-react'
+import { LayoutDashboard, Car, Landmark, LogOut, Bell, User, MapPin as MapPinIcon, ChevronRight, ChevronLeft, Zap, Target, ArrowUpRight, Wallet, Settings, Menu, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useSocket } from '@/components/SocketProvider'
 import { useEffect, useState } from 'react'
@@ -165,9 +165,9 @@ export default function PartnerDashboard() {
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                     onClick={() => setIsMinimized(false)}
-                    className="absolute bottom-10 right-4 z-[50] pointer-events-auto bg-black text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 font-black uppercase text-[10px] tracking-widest border-2 border-white/10"
+                    className="absolute bottom-10 right-4 z-[50] pointer-events-auto bg-black text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-2 font-black uppercase text-[10px] tracking-widest border border-white/10"
                   >
-                      <Zap size={14} /> Stats & Info
+                      <Search size={14} /> RIDE INFO
                   </motion.button>
               )}
           </AnimatePresence>
@@ -177,7 +177,7 @@ export default function PartnerDashboard() {
               className="absolute inset-x-0 bottom-0 md:relative md:inset-auto md:w-[360px] md:h-full z-40 p-4 pointer-events-none flex flex-col justify-end md:justify-start"
               initial={false}
               animate={{ 
-                  y: windowWidth < 768 && isMinimized && !activeRide ? '95%' : '0%' 
+                  y: windowWidth < 768 && isMinimized ? '95%' : '0%' 
               }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
           >

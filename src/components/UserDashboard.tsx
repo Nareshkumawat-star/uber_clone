@@ -103,7 +103,7 @@ export default function UserDashboard() {
           localStorage.setItem('userRideState', JSON.stringify({
               bookingStatus, assignedPartner, currentOtp, selectedDestination, driverLocation, isTripStarted
           }));
-      } else if (!showSuccessOverlay) {
+      } else {
           localStorage.removeItem('userRideState');
       }
   }, [bookingStatus, assignedPartner, currentOtp, selectedDestination, driverLocation, isTripStarted, showSuccessOverlay]);
@@ -140,6 +140,32 @@ export default function UserDashboard() {
         socket.off('trip_completed');
     };
   }, [socket]);
+
+  // Reverse Geocoding for Exact Location
+  useEffect(() => {
+    if (!coordinates) return;
+    
+    // Minimum displacement to trigger re-geocode (prevent excessive calls)
+    const dist = lastGeocodedCoords.current 
+      ? Math.sqrt(Math.pow(coordinates.lat - lastGeocodedCoords.current.lat, 2) + Math.pow(coordinates.lng - lastGeocodedCoords.current.lng, 2))
+      : 1;
+
+    if (dist > 0.0001) { // roughly 10 meters
+      const fetchAddress = async () => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coordinates.lat}&lon=${coordinates.lng}&zoom=18&addressdetails=1`);
+          const data = await res.json();
+          if (data.display_name) {
+            setPickup(data.display_name);
+            lastGeocodedCoords.current = coordinates;
+          }
+        } catch (err) {
+          console.error("Geocoding error", err);
+        }
+      };
+      fetchAddress();
+    }
+  }, [coordinates]);
 
   const handleBookRide = () => {
       if (!socket || !isConnected) { alert('Connecting to dispatch...'); return; }
@@ -206,9 +232,9 @@ export default function UserDashboard() {
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                     onClick={() => setIsMinimized(false)}
-                    className="absolute bottom-10 right-4 z-[50] pointer-events-auto bg-black text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 font-black uppercase text-[10px] tracking-widest border-2 border-white/10"
+                    className="absolute bottom-10 right-4 z-[50] pointer-events-auto bg-black text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-2 font-black uppercase text-[10px] tracking-widest border border-white/10"
                   >
-                      <Search size={14} /> {bookingStatus === 'idle' ? 'Book Now' : 'Ride Info'}
+                      <Search size={14} /> RIDE INFO
                   </motion.button>
               )}
           </AnimatePresence>
@@ -218,7 +244,7 @@ export default function UserDashboard() {
               className="absolute bottom-0 left-0 right-0 md:relative md:inset-auto md:w-[380px] md:h-full z-40 p-4 md:p-6 flex flex-col pointer-events-none"
               initial={false}
               animate={{ 
-                  y: windowWidth < 768 && isMinimized && bookingStatus === 'idle' ? '95%' : '0%' 
+                  y: windowWidth < 768 && isMinimized ? '95%' : '0%' 
               }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
           >
