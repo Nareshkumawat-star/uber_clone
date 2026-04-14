@@ -1,100 +1,94 @@
-'use client'
-import React from 'react'
-import { Car, Phone } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Car, Phone, ChevronDown, CheckCircle2, MessageSquare, ShieldCheck, MapPin, Clock, AlertCircle } from 'lucide-react'
 import ChatBox from '@/components/ChatBox'
+import { useSocket } from '@/components/SocketProvider'
+import { motion, AnimatePresence } from 'motion/react'
 
 interface RideStatusOverlayProps {
     bookingStatus: 'searching' | 'accepted';
     activeVehicle: any;
     assignedPartner: any;
     currentOtp: string | null;
+    isTripStarted: boolean;
     setBookingStatus: (status: 'idle') => void;
     setIsTripStarted: (started: boolean) => void;
+    onTripComplete: () => void;
+    onCancel: () => void;
 }
 
 export default function RideStatusOverlay({
-    bookingStatus, activeVehicle, assignedPartner, currentOtp, setBookingStatus, setIsTripStarted
+    bookingStatus, activeVehicle, assignedPartner, currentOtp, isTripStarted,
+    setBookingStatus, setIsTripStarted, onTripComplete, onCancel
 }: RideStatusOverlayProps) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const { socket } = useSocket();
 
     if (bookingStatus === 'searching') {
         return (
-            <div className="w-full bg-white flex flex-col items-center justify-center p-8 text-center space-y-6">
-                <div className="relative w-32 h-32 flex items-center justify-center mx-auto mb-8">
-                    <div className="absolute inset-0 bg-black/5 rounded-full animate-ping"></div>
-                    <div className="absolute inset-4 bg-black/10 rounded-full animate-ping" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="absolute inset-8 bg-black/20 rounded-full animate-ping" style={{ animationDelay: '0.4s' }}></div>
-                    <Car className="w-8 h-8 text-black relative z-10" />
+            <div className="w-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center animate-pulse">
+                    <Car className="w-8 h-8 text-white" />
                 </div>
-                <h2 className="text-3xl font-black text-black tracking-tight">Finding your partner...</h2>
-                <p className="text-gray-500 font-medium text-sm">We are dispatching your request to nearby {activeVehicle?.name} drivers.</p>
-
-                <div className="w-full max-w-[200px] h-2 bg-gray-100 rounded-full overflow-hidden mt-8 relative">
-                    <div className="h-full bg-black w-full rounded-full animate-pulse"></div>
+                <div>
+                    <h2 className="text-base font-black tracking-tight uppercase">Searching</h2>
+                    <p className="text-[10px] text-gray-400 font-black tracking-widest uppercase">Connecting to partner...</p>
                 </div>
-
-                <button
-                    onClick={() => setBookingStatus('idle')}
-                    className="mt-8 px-6 py-3 border-2 border-gray-100 hover:border-black text-black font-bold rounded-2xl transition-all active:scale-95"
-                >
-                    Cancel Request
-                </button>
+                <button onClick={onCancel} className="text-[10px] font-black uppercase text-gray-300 hover:text-black transition-colors pt-4">Cancel Request</button>
             </div>
         );
     }
 
     return (
-        <div className="w-full bg-white flex flex-col p-8 overflow-y-auto">
-            <div className="flex-1 flex flex-col justify-center items-center text-center relative">
-                <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-6">
-                    <Car size={32} className="text-green-500" />
-                </div>
-                <h2 className="text-3xl font-black text-black mb-2 tracking-tight">Driver Confirmed!</h2>
-                <p className="text-gray-500 font-medium text-sm mb-8">
-                    {assignedPartner?.name || 'A partner'} is on their way to pick you up in a {activeVehicle?.name}.
-                </p>
-
-                <div className="w-full bg-gray-50 rounded-[2rem] p-6 border border-gray-100 mb-8 flex items-center gap-4 text-left relative">
-                    <div className="w-16 h-16 bg-gray-200 rounded-full flex overflow-hidden shrink-0">
-                        <img src="https://ui-avatars.com/api/?name=Partner&background=0D8ABC&color=fff" alt="Driver" />
+        <div className="w-full space-y-3">
+            {/* Status Header - Small Card */}
+            <div className="p-4 bg-black text-white rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                        {isTripStarted ? <Clock size={16} /> : <MapPin size={16} />}
                     </div>
-                    <div className="flex-1">
-                        <h3 className="font-bold text-lg text-black pr-10">{assignedPartner?.name || 'Amit Kumar'}</h3>
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
-                                ★ {assignedPartner?.rating || '5.0'}
-                            </div>
-                            {currentOtp && (
-                                <div className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1 rounded-full shadow-lg shadow-blue-500/20">
-                                    <span className="text-[10px] font-black uppercase tracking-tighter opacity-80">OTP:</span>
-                                    <span className="text-sm font-black tracking-widest">{currentOtp}</span>
-                                </div>
-                            )}
-                        </div>
+                    <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-white/40">{isTripStarted ? 'Trip In Progress' : 'Partner Arriving'}</p>
+                        <p className="text-xs font-black">{assignedPartner?.name || 'Partner'}</p>
                     </div>
-                    <a href={`tel:${assignedPartner?.phone || '+919112233445'}`} className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors active:scale-95 z-30" title="Call Driver">
-                        <Phone size={20} className="fill-white" />
-                    </a>
                 </div>
-
-                <div className="w-full flex-1 flex flex-col mb-8 min-h-[400px]">
-                    <ChatBox
-                        role="user"
-                        variant="inline"
-                        rideId={currentOtp || 'dummy-ride-123'}
-                        partnerName={assignedPartner?.name || 'Amit Kumar'}
-                    />
-                </div>
-
-                <button
-                    onClick={() => {
-                        setBookingStatus('idle')
-                        setIsTripStarted(false)
-                    }}
-                    className="w-full py-4 bg-black text-white rounded-2xl font-black text-lg hover:bg-gray-900 transition-all active:scale-95 shadow-xl shadow-black/20"
-                >
-                    Cancel Trip
-                </button>
+                {!isTripStarted && currentOtp && (
+                    <div className="bg-white text-black px-2 py-1 rounded-lg text-[10px] font-black">OTP {currentOtp}</div>
+                )}
             </div>
+
+            {/* Partner Details - Compact */}
+            <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-2">
+                    <Phone size={14} className="text-gray-400" />
+                    <p className="text-[10px] font-black">+91 91122 33445</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-2">
+                    <ShieldCheck size={14} className="text-gray-400" />
+                    <p className="text-[10px] font-black uppercase">Verified</p>
+                </div>
+            </div>
+
+            {/* Chat Box - Small Card */}
+            <div className="h-64 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
+                <div className="px-3 py-2 border-b border-gray-50 flex items-center justify-between">
+                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Chat Message</span>
+                    <MessageSquare size={12} className="text-gray-200" />
+                </div>
+                <ChatBox
+                    role="user"
+                    variant="inline"
+                    rideId={currentOtp || 'dummy-ride-123'}
+                    partnerName={assignedPartner?.name || 'Partner'}
+                />
+            </div>
+
+            {/* Action - Small Button */}
+            <button
+                onClick={onCancel}
+                className="w-full py-3 text-red-100 bg-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+            >
+                <AlertCircle size={14} /> {isTripStarted ? 'SOS / STOP' : 'Cancel Trip'}
+            </button>
         </div>
     );
 }

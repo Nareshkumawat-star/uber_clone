@@ -1,7 +1,7 @@
 'use client'
 import { motion } from 'motion/react'
 import React from 'react'
-import { Bike, Car, Bus, Truck, Search } from 'lucide-react'
+import { Bike, Car, Bus, Truck, ArrowRight } from 'lucide-react'
 
 interface HerosectionProps {
     onBookNow?: () => void;
@@ -9,63 +9,57 @@ interface HerosectionProps {
 
 function Herosection({ onBookNow }: HerosectionProps) {
     return (
-        <div className='relative min-h-screen w-full overflow-hidden font-sans text-white'>
-            {/* Background Image with Overlay */}
-            <div className='absolute inset-0 bg-cover bg-center transition-transform duration-1000' 
-                 style={{ backgroundImage: "url('/hero_map.png')", transform: 'scale(1.05)' }} />
-            
-            <div className='absolute inset-0 bg-black/60 backdrop-blur-[1px]' />
-            <div className='absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80' />
+        <div className='relative min-h-[90vh] w-full overflow-hidden font-sans text-black bg-white flex flex-col items-center justify-center text-center px-6 py-20'>
+            {/* Minimal Background Pattern */}
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+                 style={{ backgroundImage: 'radial-gradient(circle, black 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
 
-            {/* Main Content */}
-            <div className='relative z-10 flex flex-col items-center justify-center min-h-screen text-center px-4 pt-20'>
-                <motion.h1 
-                    initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                    className='text-4xl sm:text-7xl md:text-8xl font-black mb-6 tracking-tighter leading-[1] md:leading-[0.9]'
-                >
-                    Book Any<br className="md:hidden" /> Vehicle
-                </motion.h1>
+            <motion.div 
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="max-w-4xl"
+            >
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-100 mb-8 bg-gray-50">
+                    <div className="w-2 h-2 rounded-full bg-black animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Next Gen Transport</span>
+                </div>
+                
+                <h1 className='text-5xl sm:text-7xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.9] uppercase'>
+                    Ride Simple<br/>Travel <span className="text-gray-200">Better</span>
+                </h1>
 
-                <motion.p 
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    className='text-lg md:text-2xl font-medium mb-16 max-w-3xl text-white/50'
-                >
-                    From daily rides to heavy transport — all in one platform.
-                </motion.p>
+                <p className='text-base md:text-xl font-medium mb-12 max-w-2xl mx-auto text-gray-400 leading-relaxed uppercase tracking-widest'>
+                    Predictable pricing, premium vehicles, and instant booking wherever you are.
+                </p>
 
-                {/* Vehicle Icons */}
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 1, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                    className='flex flex-wrap justify-center gap-6 sm:gap-8 md:gap-12 mb-10 md:mb-16 opacity-40'
-                >
-                    <Bike className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Car className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Bus className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                    <Truck className='w-5 h-5 md:w-8 md:h-8 hover:opacity-100 transition-opacity cursor-pointer' />
-                </motion.div>
+                <div className='flex flex-col sm:flex-row items-center justify-center gap-4'>
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onBookNow}
+                        className='w-full sm:w-auto bg-black text-white px-12 py-5 rounded-2xl text-base font-black uppercase tracking-[0.2em] shadow-xl shadow-black/10'
+                    >
+                        Book Now
+                    </motion.button>
+                    <button className="w-full sm:w-auto py-5 px-12 rounded-2xl text-base font-black uppercase tracking-[0.2em] hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
+                        Features <ArrowRight size={18} />
+                    </button>
+                </div>
+            </motion.div>
 
-                {/* Call to Action Button */}
-                <motion.button 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(255, 255, 255, 0.1)' }}
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ duration: 0.4, delay: 1, ease: [0.16, 1, 0.3, 1] }}
-                    onClick={onBookNow}
-                    className='bg-white text-black px-10 md:px-16 py-4 md:py-5 rounded-full text-lg md:text-xl font-black uppercase tracking-wider hover:bg-white/90 transition-all'
-                >
-                    Book Now
-                </motion.button>
-            </div>
-
-            {/* Bottom Overlay for seamless transition to next section */}
-            <div className='absolute bottom-0 w-full h-32 bg-gradient-to-t from-black to-transparent z-0' />
+            {/* Bottom Floating Icons - Monochrome */}
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+                className='flex gap-8 md:gap-16 mt-20 opacity-20'
+            >
+                <Bike size={24} />
+                <Car size={24} />
+                <Bus size={24} />
+                <Truck size={24} />
+            </motion.div>
         </div>
     )
 }

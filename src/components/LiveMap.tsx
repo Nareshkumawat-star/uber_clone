@@ -36,10 +36,10 @@ interface LiveMapProps {
   driverLocation?: { lat: number; lng: number } | null
   driverIconUrl?: string | null
   rideRequestLocation?: { lat: number; lng: number } | null
-  isPartnerWaitingForOTP?: boolean
+  hideDestinationInfo?: boolean
 }
 
-export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl, rideRequestLocation, isPartnerWaitingForOTP }: LiveMapProps) {
+export default function LiveMap({ currentLocation, destinationLocation, driverLocation, driverIconUrl, rideRequestLocation, hideDestinationInfo }: LiveMapProps) {
   const [mounted, setMounted] = useState(false)
   const [hasLayout, setHasLayout] = useState(false)
   const [routeData, setRouteData] = useState<[number, number][]>([])
@@ -131,22 +131,24 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         
         {currentLocation && <Marker position={[currentLocation.lat, currentLocation.lng]} icon={icons.blueDot} />}
-        {rideRequestLocation && <Marker position={[rideRequestLocation.lat, rideRequestLocation.lng]} icon={isPartnerWaitingForOTP ? icons.departure : icons.request} />}
-        {destinationLocation && !isPartnerWaitingForOTP && <Marker position={[destinationLocation.lat, destinationLocation.lng]} icon={icons.destSquare} />}
+        {rideRequestLocation && <Marker position={[rideRequestLocation.lat, rideRequestLocation.lng]} icon={hideDestinationInfo ? icons.departure : icons.request} />}
+        {destinationLocation && !hideDestinationInfo && <Marker position={[destinationLocation.lat, destinationLocation.lng]} icon={icons.destSquare} />}
         {driverLocation && <Marker position={[driverLocation.lat, driverLocation.lng]} icon={icons.driver} />}
 
-        {/* Primary Trip Path (Blue) */}
-        {routeData.length > 0 ? (
-          <Polyline positions={routeData} pathOptions={{ color: '#3B82F6', weight: 6, opacity: 0.8 }} />
-        ) : (
-          destinationLocation && (rideRequestLocation || currentLocation) && (
-            <Polyline 
-              positions={[
-                [rideRequestLocation?.lat || currentLocation!.lat, rideRequestLocation?.lng || currentLocation!.lng],
-                [destinationLocation.lat, destinationLocation.lng]
-              ]} 
-              pathOptions={{ color: '#3B82F6', weight: 4, opacity: 0.4, dashArray: '10, 10' }} 
-            />
+        {/* Primary Trip Path (Blue) - Hidden if hideDestinationInfo is true */}
+        {!hideDestinationInfo && (
+          routeData.length > 0 ? (
+            <Polyline positions={routeData} pathOptions={{ color: '#3B82F6', weight: 6, opacity: 0.8 }} />
+          ) : (
+            destinationLocation && (rideRequestLocation || currentLocation) && (
+              <Polyline 
+                positions={[
+                  [rideRequestLocation?.lat || currentLocation!.lat, rideRequestLocation?.lng || currentLocation!.lng],
+                  [destinationLocation.lat, destinationLocation.lng]
+                ]} 
+                pathOptions={{ color: '#3B82F6', weight: 4, opacity: 0.4, dashArray: '10, 10' }} 
+              />
+            )
           )
         )}
 
@@ -165,7 +167,7 @@ export default function LiveMap({ currentLocation, destinationLocation, driverLo
           )
         )}
 
-        <MapController center={mapCenter} destination={destCoords} driver={driverCoords} request={requestCoords} />
+        <MapController center={mapCenter} destination={hideDestinationInfo ? null : destCoords} driver={driverCoords} request={requestCoords} />
       </MapContainer>
       <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-black/5 to-transparent pointer-events-none" />
     </div>

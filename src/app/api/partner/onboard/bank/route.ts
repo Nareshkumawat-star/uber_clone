@@ -69,6 +69,6 @@ export async function GET(){
     }
     catch(error){
         console.log(error);
-        return NextResponse.json({error:"partner bank eorror"},{status:500});
+        return NextResponse.json({error:"partner bank error"},{status:500});
     }
 }

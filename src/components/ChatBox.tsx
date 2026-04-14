@@ -80,7 +80,7 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
   const opponentName = role === 'user' ? (partnerName || 'Partner') : (partnerName || 'Rider');
 
   const chatContent = (
-    <div className={`${isInline ? 'w-full border-t border-gray-100 flex-1' : 'bg-white rounded-t-3xl rounded-bl-3xl rounded-br-md shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 w-[320px] md:w-[360px] mb-4'} flex flex-col overflow-hidden transform transition-all`}>
+    <div className={`${isInline ? 'w-full h-full border-t border-gray-100' : 'bg-white rounded-t-3xl rounded-bl-3xl rounded-br-md shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 w-[320px] md:w-[360px] mb-4'} flex flex-col overflow-hidden transform transition-all`}>
 
       {!isInline && (
         <div className="bg-[#0A0A0A] text-white p-4 flex items-center justify-between">
@@ -100,7 +100,7 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
       )}
 
       {/* Messages Area */}
-      <div className={`flex-1 bg-[#F9FAFB] p-4 ${isInline ? 'min-h-[250px]' : 'h-[300px]'} overflow-y-auto flex flex-col gap-3`}>
+      <div className={`flex-1 bg-[#F9FAFB] p-4 overflow-y-auto flex flex-col gap-3 ${!isInline ? 'h-[300px]' : ''}`}>
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-center opacity-60">
             <MessageSquare size={32} className="mb-2" />
@@ -151,7 +151,7 @@ export default function ChatBox({ role, rideId, partnerName, isOpenDefault = fal
           value={inputText}
           onChange={e => setInputText(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-3 text-sm outline-none focus:border-black transition-colors"
+          className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-3 text-sm outline-none focus:border-black transition-colors select-text"
         />
         <button
           type="submit"

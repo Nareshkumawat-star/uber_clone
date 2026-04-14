@@ -1,31 +1,23 @@
 'use client'
 import { signOut } from 'next-auth/react'
-import { LayoutDashboard, Car, Landmark, LogOut, Bell, User, MapPin as MapPinIcon } from 'lucide-react'
-import { motion } from 'motion/react'
+import { LayoutDashboard, Car, Landmark, LogOut, Bell, User, MapPin as MapPinIcon, ChevronRight, ChevronLeft, Zap, Target, ArrowUpRight, Wallet, Settings, Menu } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useSocket } from '@/components/SocketProvider'
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import DashboardStats from '@/components/partner/DashboardStats'
 import IncomingRideCard from '@/components/partner/IncomingRideCard'
 import ActiveTripOverlay from '@/components/partner/ActiveTripOverlay'
 
 const LiveMap = dynamic(() => import('@/components/LiveMap'), {
   ssr: false,
-  loading: () => <div className="w-full h-full bg-white/5 animate-pulse rounded-[2rem]" />
-})
-
-const EarningsSection = dynamic(() => import('@/components/EarningsSection'), {
-  ssr: false,
-  loading: () => <div className="w-full h-full bg-white/5 animate-pulse rounded-[2rem]" />
+  loading: () => <div className="w-full h-full bg-gray-50 animate-pulse rounded-xl" />
 })
 
 export default function PartnerDashboard() {
   const { socket, isConnected } = useSocket()
   const [incomingRide, setIncomingRide] = useState<any>(null)
   const [activeRide, setActiveRide] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'earnings'>('dashboard')
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number, lng: number } | null>(null)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number, lng: number }| null>(null)
   const [requestTimer, setRequestTimer] = useState(20)
   const [otpInput, setOtpInput] = useState('')
   const [isVerified, setIsVerified] = useState(false)
@@ -33,11 +25,11 @@ export default function PartnerDashboard() {
   const [isSimulating, setIsSimulating] = useState(false)
 
   const stats = [
-    { label: 'Total Earnings', value: '₹0.00', icon: Landmark, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { label: "Today's Rides", value: '0', icon: Car, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+    { label: 'Balance', value: '₹0', icon: Wallet },
+    { label: "Today", value: '0 Rides', icon: Car },
+    { label: "Online", value: '0h', icon: Zap },
   ]
 
-  // Listen for new ride requests
   useEffect(() => {
     if (!socket) return;
     socket.on('new_ride_request', (data) => setIncomingRide(data));
@@ -52,7 +44,6 @@ export default function PartnerDashboard() {
     };
   }, [socket, activeRide]);
 
-  // Persistence logic
   useEffect(() => {
     const savedState = localStorage.getItem('partnerRideState');
     if (savedState) {
@@ -76,7 +67,6 @@ export default function PartnerDashboard() {
     }
   }, [activeRide, tripStatus, isVerified, otpInput]);
 
-  // Timer for incoming ride
   useEffect(() => {
     let interval: any;
     if (incomingRide && requestTimer > 0) {
@@ -88,7 +78,6 @@ export default function PartnerDashboard() {
     return () => clearInterval(interval);
   }, [incomingRide, requestTimer]);
 
-  // Geolocation
   useEffect(() => {
     if (!navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
@@ -105,7 +94,8 @@ export default function PartnerDashboard() {
       partner: {
         name: 'Amit Kumar',
         rating: '5.0',
-        phone: '+91 91122 33445'
+        phone: '+91 91122 33445',
+        img: 'https://ui-avatars.com/api/?name=Amit+Kumar&background=000&color=fff'
       }
     });
     setActiveRide(incomingRide);
@@ -118,132 +108,147 @@ export default function PartnerDashboard() {
     if (otpInput === activeRide?.otp) {
       setIsVerified(true);
       setTripStatus('ongoing');
-      if (socket) socket.emit('trip_started', { rideId: activeRide.id });
-    } else { alert("Invalid Verification Code."); }
+      if (socket) socket.emit('trip_started', { rideId: activeRide.id || activeRide.otp });
+    } else { alert("Invalid OTP"); }
   };
 
-  // Simulation Logic
+  const [isMinimized, setIsMinimized] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
   useEffect(() => {
-    if (!isSimulating || !activeRide || !socket) return;
-    const targetCoords = isVerified ? activeRide.destinationCoords : activeRide.pickupCoords;
-    let currentLat = isVerified ? activeRide.pickupCoords.lat : activeRide.pickupCoords.lat + 0.01;
-    let currentLng = isVerified ? activeRide.pickupCoords.lng : activeRide.pickupCoords.lng + 0.01;
-    const interval = setInterval(() => {
-      currentLat -= (currentLat - targetCoords.lat) * 0.1;
-      currentLng -= (currentLng - targetCoords.lng) * 0.1;
-      socket.emit('update_location', { partnerId: 'test-partner', coords: { lat: currentLat, lng: currentLng } });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [isSimulating, activeRide, socket, isVerified]);
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white flex select-none font-sans">
-      <div className="fixed top-0 left-0 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] -z-10" />
-
-      {/* Sidebar */}
-      <motion.div
-        animate={{ width: isSidebarOpen ? '256px' : '0px' }}
-        className="fixed lg:relative z-50 h-full border-r border-white/10 flex flex-col items-center py-8 bg-black/40 backdrop-blur-3xl overflow-hidden transition-all"
-      >
-        <div className="flex items-center justify-between w-full px-6 mb-12">
-          <h1 className="text-2xl font-black tracking-tighter">GoRide<span className="text-purple-500">.</span></h1>
-        </div>
-        <div className="flex-1 w-full px-4 space-y-4">
-          <NavItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <NavItem icon={Landmark} label="Earnings" active={activeTab === 'earnings'} onClick={() => setActiveTab('earnings')} />
-        </div>
-        <button onClick={() => signOut()} className="mt-auto w-full px-4 text-red-400/70 hover:text-red-400 p-4 flex items-center gap-4 transition-all">
-          <LogOut size={20} /> <span className="font-semibold text-sm">Sign Out</span>
-        </button>
-      </motion.div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative z-10">
-        {activeTab === 'dashboard' ? (
-          <>
-            {/* Left Side: Stats and Active Trip Info (Split View) */}
-            <div className="w-[500px] h-full bg-[#0A0A0A] border-r border-white/10 flex flex-col overflow-y-auto scrollbar-hide">
-              <div className="p-8 lg:p-10 space-y-8">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h2 className="text-4xl font-black tracking-tight">Overview</h2>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-2 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Status: {isConnected ? 'Online' : 'Offline'}
-                    </p>
-                  </div>
-                  <div className="h-12 pl-2 pr-5 bg-white/5 border border-white/10 rounded-full flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 px-2 bg-amber-400/10 border border-amber-400/20 rounded-full py-1">
-                      <span className="text-[10px] font-black text-amber-400 uppercase">5.0</span>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center p-[1px]">
-                      <div className="w-full h-full bg-black rounded-full flex items-center justify-center"><User size={14} /></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-10">
-                  {!activeRide && <DashboardStats stats={stats} />}
-                  {activeRide ? (
-                    <ActiveTripOverlay
-                      activeRide={activeRide} tripStatus={tripStatus} isSimulating={isSimulating}
-                      setIsSimulating={setIsSimulating} setActiveRide={setActiveRide}
-                      setIsVerified={setIsVerified} setOtpInput={setOtpInput}
-                      isVerified={isVerified} otpInput={otpInput} handleVerifyOtp={handleVerifyOtp}
-                      setTripStatus={setTripStatus}
-                    />
-                  ) : (
-                    <div className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8 text-center space-y-4">
-                      <p className="text-gray-400 font-medium">No active ride at the moment.</p>
-                      <p className="text-xs text-gray-500 uppercase font-black tracking-widest">Map is live and monitoring your area</p>
-                    </div>
-                  )}
-                </div>
+    <div className="h-[100dvh] bg-white text-black flex flex-col font-sans overflow-hidden">
+      
+      {/* Small Header */}
+      <div className="h-14 border-b border-gray-100 flex items-center justify-between px-4 md:px-6 shrink-0 z-50 bg-white">
+          <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                  <Zap className="text-white w-4 h-4" />
               </div>
-            </div>
+              <h1 className="text-lg font-black tracking-tighter">Partner</h1>
+          </div>
+          <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-4 mr-4">
+                   <p className="text-[10px] font-black uppercase text-gray-400">Online</p>
+                   <div className="w-2 h-2 rounded-full bg-black animate-pulse" />
+              </div>
+              <button onClick={() => signOut()} className="text-gray-400 hover:text-black transition-colors"><LogOut size={18} /></button>
+          </div>
+      </div>
 
-            {/* Right Side: Large Map (Dashboard Only) */}
-            <div className="flex-1 relative bg-[#050505]">
-              <div className="absolute inset-0 z-0">
-                <LiveMap
+      <div className="flex-1 flex flex-col min-h-0 relative bg-gray-50">
+          <div className="absolute inset-0 z-0">
+              <LiveMap
                   currentLocation={currentLocation}
                   rideRequestLocation={incomingRide?.pickupCoords || activeRide?.pickupCoords}
                   destinationLocation={activeRide?.destinationCoords}
-                  isPartnerWaitingForOTP={!isVerified && !!activeRide}
-                />
-              </div>
-
-              <div className="absolute bottom-8 left-8 right-8 z-20 flex justify-between items-end">
-                <div className="bg-black/40 backdrop-blur-3xl border border-white/10 p-5 px-7 rounded-[2rem] flex items-center gap-3">
-                  <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center animate-pulse"><div className="w-3.5 h-3.5 bg-emerald-500 rounded-full" /></div>
-                  <div><p className="text-sm font-black text-white">{incomingRide ? 'New Request Found' : 'Waiting for Rides...'}</p></div>
-                </div>
-                <div onClick={() => currentLocation && setCurrentLocation({ ...currentLocation })} className="w-14 h-14 bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl flex items-center justify-center cursor-pointer transition-all"><MapPinIcon size={24} /></div>
-              </div>
-
-              <IncomingRideCard incomingRide={incomingRide} requestTimer={requestTimer} handleAcceptRide={handleAcceptRide} setIncomingRide={setIncomingRide} />
-            </div>
-          </>
-        ) : (
-          /* Earnings Page (Full Width, No Map) */
-          <div className="flex-1 overflow-y-auto p-12 lg:p-16">
-             <div className="max-w-7xl mx-auto">
-                <div className="mb-12">
-                   <h2 className="text-5xl font-black tracking-tight">Earnings</h2>
-                   <p className="text-xs font-bold text-gray-500 uppercase tracking-[0.3em] mt-4">Platform Performance & Payments</p>
-                </div>
-                <EarningsSection />
-             </div>
+                  hideDestinationInfo={!isVerified && !!activeRide}
+              />
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
-function NavItem({ icon: Icon, label, active = false, onClick }: { icon: any, label: string, active?: boolean, onClick?: () => void }) {
-  return (
-    <div onClick={onClick} className={`w-full flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border border-transparent ${active ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'hover:bg-white/5 text-gray-500 hover:text-white'}`}>
-      <Icon size={20} /> <span className={`font-semibold text-sm ${active ? 'text-white' : ''}`}>{label}</span>
+          <div className="absolute top-4 right-4 z-20">
+              <div onClick={() => currentLocation && setCurrentLocation({ ...currentLocation })} className="w-10 h-10 bg-white text-black rounded-xl border border-gray-100 flex items-center justify-center cursor-pointer shadow-lg active:bg-gray-50">
+                  <MapPinIcon size={18} />
+              </div>
+          </div>
+
+          {/* Floating Action Button (FAB) for Map-Only Mode (Mobile) */}
+          <AnimatePresence>
+              {windowWidth < 768 && isMinimized && (
+                  <motion.button 
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    onClick={() => setIsMinimized(false)}
+                    className="absolute bottom-10 right-4 z-[50] pointer-events-auto bg-black text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 font-black uppercase text-[10px] tracking-widest border-2 border-white/10"
+                  >
+                      <Zap size={14} /> Stats & Info
+                  </motion.button>
+              )}
+          </AnimatePresence>
+
+          {/* Floating Panels: Draggable on Mobile */}
+          <motion.div 
+              className="absolute inset-x-0 bottom-0 md:relative md:inset-auto md:w-[360px] md:h-full z-40 p-4 pointer-events-none flex flex-col justify-end md:justify-start"
+              initial={false}
+              animate={{ 
+                  y: windowWidth < 768 && isMinimized && !activeRide ? '95%' : '0%' 
+              }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          >
+              <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl border border-gray-100 overflow-hidden pointer-events-auto max-h-[75vh] md:max-h-none flex flex-col">
+                  {/* Pull handle */}
+                  <div 
+                    onClick={() => setIsMinimized(!isMinimized)}
+                    className="w-full h-10 flex flex-col items-center justify-center cursor-pointer md:hidden group relative"
+                  >
+                      <div className="w-12 h-1 bg-gray-200 rounded-full group-hover:bg-gray-400 transition-colors" />
+                      <motion.div 
+                        animate={{ rotate: isMinimized ? 180 : 0 }}
+                        className="absolute right-6 text-gray-300"
+                      >
+                         <ChevronLeft className="-rotate-90" size={16} />
+                      </motion.div>
+                      {isMinimized && !activeRide && (
+                          <p className="text-[8px] font-black uppercase tracking-widest text-gray-400 mt-2">Tap to view stats</p>
+                      )}
+                  </div>
+                  
+                  <div className={`flex-1 overflow-y-auto scrollbar-hide p-4 md:p-6 space-y-4 transition-opacity duration-300 ${isMinimized && !activeRide ? 'opacity-0' : 'opacity-100'}`}>
+                      {/* Status Card */}
+                      {!activeRide && (
+                          <div className="p-4 bg-black text-white rounded-xl">
+                              <p className="text-[8px] font-black uppercase tracking-[0.3em] opacity-40 mb-1">System</p>
+                              <h2 className="text-base font-black">Active & Ready</h2>
+                          </div>
+                      )}
+
+                      {/* Stats Grid - Smaller on Mobile */}
+                      {!activeRide && (
+                          <div className="grid grid-cols-3 gap-2">
+                              {stats.map((s, i) => (
+                                  <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex flex-col items-center justify-center text-center">
+                                      <p className="text-[10px] font-black">{s.value}</p>
+                                      <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest">{s.label}</p>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+
+                      {/* Active Ride Card */}
+                      <AnimatePresence mode="wait">
+                          {activeRide ? (
+                              <motion.div key="active" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}>
+                                  <ActiveTripOverlay
+                                      socket={socket}
+                                      activeRide={activeRide} tripStatus={tripStatus} isSimulating={isSimulating}
+                                      setIsSimulating={setIsSimulating} setActiveRide={setActiveRide}
+                                      setIsVerified={setIsVerified} setOtpInput={setOtpInput}
+                                      isVerified={isVerified} otpInput={otpInput} handleVerifyOtp={handleVerifyOtp}
+                                      setTripStatus={setTripStatus}
+                                  />
+                              </motion.div>
+                          ) : (
+                              <div className="p-8 text-center border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center gap-3">
+                                  <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center">
+                                      <Zap size={18} className="text-gray-200" />
+                                  </div>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Searching for rides...</p>
+                              </div>
+                          )}
+                      </AnimatePresence>
+                  </div>
+              </div>
+          </motion.div>
+
+          {/* Incoming Request Overlay */}
+          <IncomingRideCard incomingRide={incomingRide} requestTimer={requestTimer} handleAcceptRide={handleAcceptRide} setIncomingRide={setIncomingRide} />
+      </div>
     </div>
   )
 }

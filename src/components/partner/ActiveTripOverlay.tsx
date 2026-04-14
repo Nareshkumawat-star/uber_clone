@@ -1,9 +1,10 @@
-'use client'
 import React from 'react'
-import { LogOut, MapPin as MapPinIcon, Navigation, ShieldCheck, Phone } from 'lucide-react'
+import { MapPin as MapPinIcon, Navigation, ShieldCheck, Phone, ChevronDown, CheckCircle2, MessageSquare, ExternalLink, Zap } from 'lucide-react'
 import ChatBox from '@/components/ChatBox'
+import { motion } from 'motion/react'
 
 interface ActiveTripOverlayProps {
+    socket: any;
     activeRide: any;
     tripStatus: 'approaching' | 'ongoing' | 'completed';
     isSimulating: boolean;
@@ -18,146 +19,117 @@ interface ActiveTripOverlayProps {
 }
 
 export default function ActiveTripOverlay({
-    activeRide, tripStatus, isSimulating, setIsSimulating, setActiveRide, setIsVerified,
+    socket, activeRide, tripStatus, isSimulating, setIsSimulating, setActiveRide, setIsVerified,
     setOtpInput, isVerified, otpInput, handleVerifyOtp, setTripStatus
 }: ActiveTripOverlayProps) {
     if (!activeRide) return null;
 
+    const navLink = `https://www.google.com/maps/dir/?api=1&destination=${
+        tripStatus === 'approaching' 
+        ? `${activeRide.pickupCoords.lat},${activeRide.pickupCoords.lng}` 
+        : `${activeRide.destinationCoords.lat},${activeRide.destinationCoords.lng}`
+    }`;
+
     return (
-        <div className="w-full flex flex-col bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-gray-100">
-            <div className="bg-black p-8 text-white">
-                <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 bg-white/10 rounded-full">Active Trip</span>
-                    <div className="flex gap-2">
-                        {/* Removed simulation/logout buttons */}
+        <div className="w-full space-y-2">
+            {/* Status Header - Small Monochrome Card */}
+            <div className="p-4 bg-black text-white rounded-xl">
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                         <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-50">{tripStatus}</span>
                     </div>
                 </div>
-                <h2 className="text-3xl font-black mb-1">
-                    {tripStatus === 'approaching' ? 'Pick up Rider' : tripStatus === 'ongoing' ? 'In Progress' : 'Completed'}
+                <h2 className="text-sm font-black uppercase leading-tight">
+                     {tripStatus === 'approaching' ? 'Heading to Pickup' : 'Heading to Dropoff'}
                 </h2>
-                <p className="text-white/50 text-sm font-medium">Trip to {activeRide.destinationAddress?.split(',')[0] || 'Destination'}</p>
+                <div className="mt-4 flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-white/60 line-clamp-1 flex-1 pr-4">{tripStatus === 'approaching' ? activeRide.pickupAddress : activeRide.destinationAddress}</p>
+                    <a href={navLink} target="_blank" rel="noreferrer" className="shrink-0 bg-white text-black p-2 rounded-lg hover:bg-gray-200 transition-all">
+                        <Navigation size={14} />
+                    </a>
+                </div>
             </div>
 
-            <div className="flex-1 p-8 overflow-y-auto">
-                <div className="space-y-8">
-                    <div className="space-y-6">
-                        <div className="flex gap-4">
-                            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center shrink-0 mt-1">
-                                <MapPinIcon size={14} className="text-white" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pickup Information</p>
-                                <p className="font-bold text-gray-800 leading-tight">{activeRide.pickupAddress}</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-4">
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-1">
-                                <Navigation size={14} className="text-black" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Dropoff Destination</p>
-                                <p className="font-bold text-gray-800 leading-tight">{activeRide.destinationAddress}</p>
-                            </div>
-                        </div>
+            {/* Rider Info - Compact Card */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-lg overflow-hidden border border-gray-200">
+                         <img src="https://ui-avatars.com/api/?name=Rider&background=000&color=fff" alt="Rider" className="w-full h-full object-cover" />
+                     </div>
+                     <div>
+                         <h4 className="text-[11px] font-black">{activeRide.riderName || 'Rider'}</h4>
+                         <p className="text-[9px] font-bold text-gray-400">★ 4.9</p>
+                     </div>
+                </div>
+                <a href={`tel:${activeRide.riderPhone || '+919988776655'}`} className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10">
+                    <Phone size={14} className="fill-white" />
+                </a>
+            </div>
+
+            {/* OTP Verification or Trip Actions */}
+            {!isVerified ? (
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
+                    <p className="text-[9px] font-black text-gray-400 uppercase text-center tracking-widest">Enter 4-digit OTP</p>
+                    <div className="flex justify-center gap-2">
+                        {Array(4).fill(0).map((_, i) => (
+                            <input
+                                key={i}
+                                id={`otp-${i}`}
+                                type="text"
+                                maxLength={1}
+                                value={otpInput[i] || ''}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    const newOtp = otpInput.split('');
+                                    newOtp[i] = val;
+                                    setOtpInput(newOtp.join(''));
+                                    if (val && i < 3) {
+                                        const next = document.getElementById(`otp-${i + 1}`);
+                                        if (next) next.focus();
+                                    }
+                                }}
+                                className="w-10 h-12 bg-white border border-gray-200 rounded-lg text-center text-xl font-black focus:border-black focus:outline-none transition-all shadow-sm"
+                            />
+                        ))}
                     </div>
-
-                    <div className="h-px bg-gray-100 w-full" />
-
-                    {/* Rider Profile Card */}
-                    <div className="bg-gray-50 rounded-[2rem] p-6 border border-gray-100 flex items-center gap-4 relative">
-                        <div className="w-14 h-14 bg-gray-200 rounded-full overflow-hidden shrink-0">
-                            <img src="https://ui-avatars.com/api/?name=Rider&background=random&color=fff" alt="Rider" />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="font-bold text-gray-900 pr-10">{activeRide.riderName || 'Rahul Sharma'}</h3>
-                            <p className="text-xs font-bold text-amber-500">★ 4.9 Rating</p>
-                        </div>
-                        <a href={`tel:${activeRide.riderPhone || '+919988776655'}`} className="absolute right-6 top-1/2 -translate-y-1/2 w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors active:scale-95" title="Call Rider">
-                            <Phone size={16} className="fill-white" />
-                        </a>
-                    </div>
-
-                    <div className="w-full flex-1 border border-gray-100 rounded-[2rem] overflow-hidden min-h-[350px] flex flex-col">
-                        <ChatBox
+                    <button
+                        onClick={handleVerifyOtp}
+                        disabled={otpInput.length !== 4}
+                        className="w-full py-3 bg-black text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg disabled:opacity-20 disabled:shadow-none transition-all"
+                    >
+                        Verify & Start
+                    </button>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                     <div className="h-48 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
+                         <div className="p-2 border-b border-gray-50 flex items-center justify-between">
+                             <span className="text-[9px] font-black text-gray-300 uppercase">Trip Chat</span>
+                             <MessageSquare size={12} className="text-gray-200" />
+                         </div>
+                         <ChatBox
                             role="partner"
                             variant="inline"
-                            rideId={activeRide.otp || 'dummy-ride-123'}
-                            partnerName={activeRide.riderName || 'Rahul Sharma'}
+                            rideId={activeRide.otp || 'ride-123'}
+                            partnerName={activeRide.riderName || 'Rider'}
                         />
-                    </div>
-
-                    {!isVerified ? (
-                        <div className="bg-blue-50 rounded-[2rem] p-8 border border-blue-100">
-                            <div className="flex items-center gap-3 mb-4">
-                                <ShieldCheck className="text-blue-600" size={24} />
-                                <h4 className="font-black text-blue-900">Verify Identity</h4>
-                            </div>
-                            <p className="text-blue-700/70 text-sm font-medium mb-6">
-                                Ask the rider for their 4-digit code to start the trip.
-                            </p>
-
-                            <div className="flex gap-4 justify-center mb-10">
-                                {Array(4).fill(0).map((_, i) => (
-                                    <input
-                                        key={i}
-                                        id={`otp-${i}`}
-                                        type="text"
-                                        maxLength={1}
-                                        value={otpInput[i] || ''}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '');
-                                            const newOtp = otpInput.split('');
-                                            newOtp[i] = val;
-                                            setOtpInput(newOtp.join(''));
-                                            if (val && i < 3) {
-                                                const next = document.getElementById(`otp-${i + 1}`);
-                                                if (next) next.focus();
-                                            }
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Backspace' && !otpInput[i] && i > 0) {
-                                                const prev = document.getElementById(`otp-${i - 1}`);
-                                                if (prev) prev.focus();
-                                            }
-                                        }}
-                                        className="w-14 h-16 bg-white border-2 border-blue-200 rounded-xl text-center text-3xl font-black focus:border-blue-500 focus:outline-none transition-all text-black shadow-inner"
-                                    />
-                                ))}
-                            </div>
-
-                            <button
-                                onClick={handleVerifyOtp}
-                                disabled={otpInput.length !== 4}
-                                className="w-full bg-blue-600 text-white rounded-xl py-4 font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
-                            >
-                                Start Trip
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="bg-emerald-50 rounded-[2rem] p-8 border border-emerald-100 flex flex-col items-center text-center">
-                            <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mb-4 animate-bounce">
-                                <ShieldCheck size={32} />
-                            </div>
-                            <h4 className="font-black text-emerald-900 text-xl mb-2">Trip Started!</h4>
-                            <p className="text-emerald-700/70 text-sm font-medium mb-8">
-                                Rider identity verified. Proceed to destination.
-                            </p>
-
-                            <button
-                                onClick={() => {
-                                    setTripStatus('approaching');
-                                    setActiveRide(null);
-                                    setIsVerified(false);
-                                    setOtpInput('');
-                                }}
-                                className="w-full bg-emerald-600 text-white rounded-xl py-4 font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-500/30 transition-all active:scale-95"
-                            >
-                                Complete Ride
-                            </button>
-                        </div>
-                    )}
+                     </div>
+                     <button
+                        onClick={() => {
+                            if (socket) socket.emit('trip_completed', { rideId: activeRide.id || activeRide.otp });
+                            localStorage.setItem('tripCompletedSignal', Date.now().toString());
+                            setTripStatus('approaching');
+                            setActiveRide(null);
+                            setIsVerified(false);
+                            setOtpInput('');
+                        }}
+                        className="w-full py-3 bg-black text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:bg-gray-900 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        <CheckCircle2 size={14} /> End Trip
+                    </button>
                 </div>
-            </div>
+            )}
         </div>
     );
 }
