@@ -41,18 +41,6 @@ function PartnerDashboard() {
             }
 
             const currentStep = userdata.partneronbaordingsteps || 0;
-            
-            if (currentStep === 0) {
-                router.push('/partner/onboarding/vehicle')
-                return
-            } else if (currentStep === 1) {
-                router.push('/partner/onboarding/Documents')
-                return
-            } else if (currentStep === 2) {
-                router.push('/partner/onboarding/Bank')
-                return
-            }
-
             setactivesteps(currentStep)
 
             // Check if review was rejected (at step 3)

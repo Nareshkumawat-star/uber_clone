@@ -2,12 +2,22 @@
 import { motion } from 'motion/react'
 import React from 'react'
 import { Bike, Car, Bus, Truck, Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface HerosectionProps {
     onBookNow?: () => void;
 }
 
 function Herosection({ onBookNow }: HerosectionProps) {
+    const router = useRouter();
+
+    const handleBookNow = () => {
+        if (onBookNow) {
+            onBookNow();
+        }
+        router.push('/book');
+    };
+
     return (
         <div className='relative min-h-screen w-full overflow-hidden font-sans text-white'>
             {/* Background Image with Overlay */}
@@ -57,7 +67,7 @@ function Herosection({ onBookNow }: HerosectionProps) {
                     whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(255, 255, 255, 0.1)' }}
                     whileTap={{ scale: 0.95 }}
                     transition={{ duration: 0.4, delay: 1, ease: [0.16, 1, 0.3, 1] }}
-                    onClick={onBookNow}
+                    onClick={handleBookNow}
                     className='bg-white text-black px-10 md:px-16 py-4 md:py-5 rounded-full text-lg md:text-xl font-black uppercase tracking-wider hover:bg-white/90 transition-all'
                 >
                     Book Now
@@ -70,4 +80,4 @@ function Herosection({ onBookNow }: HerosectionProps) {
     )
 }
 
-export default Herosection
+export default Herosection

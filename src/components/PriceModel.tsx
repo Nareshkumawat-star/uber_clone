@@ -88,7 +88,7 @@ export default function PriceModel() {
                 dispatch(setUser(res.data.user))
             }
 
-            router.push('/')
+            router.replace('/')
         } catch (err: any) {
             setError(err.response?.data?.error || "Failed to save pricing details.")
         } finally {
@@ -180,7 +180,7 @@ export default function PriceModel() {
             {/* Footer Buttons */}
             <div className="px-8 py-6 bg-white border-t border-gray-100 flex flex-col md:flex-row gap-4">
                 <button
-                    onClick={() => router.back()}
+                    onClick={() => router.push('/')}
                     className="flex-1 py-4 border border-gray-200 rounded-2xl text-sm font-bold text-black hover:bg-gray-50 transition-all active:scale-95"
                 >
                     Cancel

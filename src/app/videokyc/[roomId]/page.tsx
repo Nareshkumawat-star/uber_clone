@@ -64,7 +64,7 @@ function VideoKycPage() {
                 showLeaveRoomConfirmDialog: true,
                 onLeaveRoom: () => {
                     try { zcInstanceRef.current?.destroy() } catch(e) {}
-                    router.push('/')
+                    router.replace('/')
                 },
                 onUserLeave: (users: any[]) => {
                     if (userdata?.role !== 'admin') {
@@ -154,7 +154,7 @@ function VideoKycPage() {
                             )}
                         </button>
                         <button
-                            onClick={() => router.push('/')}
+                            onClick={() => router.replace('/')}
                             className="w-full py-3 mt-3 text-gray-400 text-sm font-medium hover:text-black transition-colors"
                         >
                             Go Back

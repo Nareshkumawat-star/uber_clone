@@ -95,7 +95,7 @@ export default function VehicleOnboardingPage() {
         {/* Header Section */}
         <div className="flex flex-col items-center text-center mb-8">
           <button 
-            onClick={() => router.back()}
+            onClick={() => router.push('/')}
             className="absolute left-6 top-6 w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-black hover:bg-gray-50 transition-colors"
           >
             <ArrowLeft size={18} />

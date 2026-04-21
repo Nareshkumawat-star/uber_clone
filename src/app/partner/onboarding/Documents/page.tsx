@@ -107,8 +107,8 @@ export default function DocumentsPage() {
         {/* Header Section */}
         <div className="flex flex-col items-center text-center mb-8">
           <button 
-            onClick={() => router.back()}
-            className="absolute left-6 top-6 w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-black hover:bg-gray-50 transition-colors"
+            onClick={() => router.push('/partner/onboarding/vehicle')}
+            className="absolute left-6 top-6 w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-black hover:bg-gray-50 transition-colors z-50 bg-white"
           >
             <ArrowLeft size={18} />
           </button>
