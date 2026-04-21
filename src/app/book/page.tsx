@@ -1,10 +1,12 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
-import { Bike, Car, Truck, Phone, MapPin, Navigation, CheckCircle2, ChevronLeft, Info, Search, LocateFixed } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useSelector } from 'react-redux'
-import { RootState } from '@/redux/store'
+import { motion, AnimatePresence } from 'motion/react'
+import { 
+    MapPin, Navigation, Search, ChevronLeft, LocateFixed, 
+    Bike, Car, Truck, Phone, ShieldCheck, Clock, 
+    ArrowRight, Info, CheckCircle2, ChevronRight
+} from 'lucide-react'
 
 // Custom Auto Rickshaw Icon
 const AutoIcon = ({ className }: { className?: string }) => (
@@ -17,41 +19,103 @@ const AutoIcon = ({ className }: { className?: string }) => (
     </svg>
 )
 
-const vehicles = [
-    { id: 'bike', name: 'Bike', desc: 'Quick & affordable', icon: Bike },
-    { id: 'auto', name: 'Auto', desc: 'Everyday rides', icon: AutoIcon },
-    { id: 'car', name: 'Car', desc: 'Comfort rides', icon: Car },
-    { id: 'loading', name: 'Loading', desc: 'Small cargo', icon: Truck },
-    { id: 'truck', name: 'Truck', desc: 'Heavy transport', icon: Truck },
-]
-
 export default function BookingPage() {
     const router = useRouter()
-    const { userdata } = useSelector((state: RootState) => state.user)
-    const [selectedVehicle, setSelectedVehicle] = useState('bike')
-    const [mobileNumber, setMobileNumber] = useState(userdata?.mobileNumber || '')
     const [pickup, setPickup] = useState('')
     const [dropoff, setDropoff] = useState('')
+    const [selectedVehicle, setSelectedVehicle] = useState<'bike' | 'auto' | 'car' | 'truck'>('bike')
+    const [mobileNumber, setMobileNumber] = useState('')
+    const [pickupCoords, setPickupCoords] = useState<{lat: number, lon: number} | null>(null)
+    const [dropoffCoords, setDropoffCoords] = useState<{lat: number, lon: number} | null>(null)
     const [isLocating, setIsLocating] = useState(false)
-    const [isPickupSearching, setIsPickupSearching] = useState(false)
-    const [isDropoffSearching, setIsDropoffSearching] = useState(false)
-    const [suggestions, setSuggestions] = useState<string[]>([])
+    const [distance, setDistance] = useState<number | null>(null)
+
+    // Haversine formula to calculate distance in KM
+    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const R = 6371 
+        const dLat = (lat2 - lat1) * Math.PI / 180
+        const dLon = (lon2 - lon1) * Math.PI / 180
+        const a = 
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+    }
+
+    useEffect(() => {
+        if (pickupCoords && dropoffCoords) {
+            const dist = calculateDistance(pickupCoords.lat, pickupCoords.lon, dropoffCoords.lat, dropoffCoords.lon)
+            setDistance(dist)
+        }
+    }, [pickupCoords, dropoffCoords])
+
+    const getFare = (baseRate: number) => {
+        if (!distance) return baseRate.toString()
+        const calculated = Math.round(30 + (distance * baseRate))
+        return calculated.toString()
+    }
+    
+    // Suggestion states
     const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([])
-    const [showSuggestions, setShowSuggestions] = useState(false)
+    const [pickupSuggestionData, setPickupSuggestionData] = useState<any[]>([])
     const [showPickupSuggestions, setShowPickupSuggestions] = useState(false)
-    const pickupTimeout = React.useRef<NodeJS.Timeout | null>(null)
-    const dropoffTimeout = React.useRef<NodeJS.Timeout | null>(null)
+    const [isPickupSearching, setIsPickupSearching] = useState(false)
+    
+    const [suggestions, setSuggestions] = useState<string[]>([])
+    const [suggestionData, setSuggestionData] = useState<any[]>([])
+    const [showSuggestions, setShowSuggestions] = useState(false)
+    const [isDropoffSearching, setIsDropoffSearching] = useState(false)
 
-    const popularLocations = [
-        "JDA Complex, Jhansi",
-        "Railway Station, Jhansi",
-        "City Bazaar, Jhansi",
-        "Medical College, Jhansi",
-        "Sipri Bazar, Jhansi",
-        "Elite Crossing, Jhansi"
-    ]
+    const handlePickupChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setPickup(val)
+        if (val.length > 2) {
+            setIsPickupSearching(true)
+            try {
+                const response = await fetch(`/api/location/proxy?type=search&q=${encodeURIComponent(val)}`)
+                const data = await response.json()
+                if (data && Array.isArray(data)) {
+                    setPickupSuggestions(data.map((item: any) => item.display_name))
+                    setPickupSuggestionData(data)
+                    setShowPickupSuggestions(true)
+                }
+            } catch (error) {
+                console.error("Pickup search error:", error)
+            } finally {
+                setIsPickupSearching(false)
+            }
+        } else {
+            setPickupSuggestions([])
+            setShowPickupSuggestions(false)
+        }
+    }
 
-    const handleLocationClick = () => {
+    const handleDropoffChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setDropoff(val)
+        if (val.length > 2) {
+            setIsDropoffSearching(true)
+            try {
+                const response = await fetch(`/api/location/proxy?type=search&q=${encodeURIComponent(val)}`)
+                const data = await response.json()
+                if (data && Array.isArray(data)) {
+                    setSuggestions(data.map((item: any) => item.display_name))
+                    setSuggestionData(data)
+                    setShowSuggestions(true)
+                }
+            } catch (error) {
+                console.error("Dropoff search error:", error)
+            } finally {
+                setIsDropoffSearching(false)
+            }
+        } else {
+            setSuggestions([])
+            setShowSuggestions(false)
+        }
+    }
+
+    const getCurrentLocation = () => {
         if (!navigator.geolocation) {
             alert("Geolocation is not supported by your browser")
             return
@@ -60,347 +124,236 @@ export default function BookingPage() {
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords
+                setPickupCoords({ lat: latitude, lon: longitude })
                 try {
                     const response = await fetch(`/api/location/proxy?type=reverse&lat=${latitude}&lon=${longitude}`)
                     const data = await response.json()
-                    
-                    if (data && data.error) {
-                        throw new Error(data.error)
-                    }
-
                     if (data && data.display_name) {
-                        // Extract a shorter, cleaner version if it's too long
-                        const parts = data.display_name.split(',')
-                        const cleanAddress = parts.length > 3 ? parts.slice(0, 4).join(',') : data.display_name
-                        setPickup(cleanAddress)
-                    } else if (data && data.address) {
-                        const { road, suburb, city, state } = data.address
-                        const manualAddress = [road, suburb, city, state].filter(Boolean).join(', ')
-                        setPickup(manualAddress || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`)
+                        setPickup(data.display_name)
                     } else {
-                        setPickup(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`)
+                        setPickup(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
                     }
                 } catch (error) {
-                    console.error("Reverse geocoding failed:", error)
-                    alert("Location found but couldn't get address. Showing coordinates.")
-                    setPickup(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`)
+                    setPickup(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
                 } finally {
                     setIsLocating(false)
                 }
             },
-            (error) => {
-                console.error("Error getting location:", error)
+            () => {
                 alert("Unable to retrieve your location")
                 setIsLocating(false)
-            },
-            { enableHighAccuracy: true }
+            }
         )
     }
 
-    const handlePickupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value
-        setPickup(val)
-        
-        if (pickupTimeout.current) clearTimeout(pickupTimeout.current)
+    const handleContinue = async () => {
+        if (!pickup || !dropoff || !mobileNumber) {
+            alert("Please fill in all details")
+            return
+        }
 
-        if (val.length > 2) {
-            pickupTimeout.current = setTimeout(async () => {
-                setIsPickupSearching(true)
-                try {
-                    const response = await fetch(`/api/location/proxy?type=search&q=${encodeURIComponent(val)}`)
-                    const data = await response.json()
-                    if (data && Array.isArray(data)) {
-                        setPickupSuggestions(data.map((item: any) => item.display_name))
-                        setShowPickupSuggestions(true)
-                    }
-                } catch (error) {
-                    console.error("Pickup suggestions fetch failed:", error)
-                } finally {
-                    setIsPickupSearching(false)
+        let pLatLong = pickupCoords
+        let dLatLong = dropoffCoords
+
+        const geocode = async (text: string) => {
+            try {
+                const res = await fetch(`/api/location/proxy?type=search&q=${encodeURIComponent(text)}`)
+                const data = await res.json()
+                if (data && data[0]) {
+                    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
                 }
-            }, 600)
-        } else {
-            setShowPickupSuggestions(false)
+            } catch (e) {
+                console.error("Manual geocode failed", e)
+            }
+            return null
         }
+
+        if (!pLatLong) pLatLong = await geocode(pickup)
+        if (!dLatLong) dLatLong = await geocode(dropoff)
+
+        const query = new URLSearchParams({
+            pickup,
+            dropoff,
+            vehicle: selectedVehicle,
+            mobile: mobileNumber,
+            ...(pLatLong && { plat: pLatLong.lat.toString(), plon: pLatLong.lon.toString() }),
+            ...(dLatLong && { dlat: dLatLong.lat.toString(), dlon: dLatLong.lon.toString() })
+        }).toString()
+
+        router.push(`/book/status?${query}`)
     }
-
-    const handleDropoffChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value
-        setDropoff(val)
-
-        if (dropoffTimeout.current) clearTimeout(dropoffTimeout.current)
-
-        if (val.length > 2) {
-            dropoffTimeout.current = setTimeout(async () => {
-                setIsDropoffSearching(true)
-                try {
-                    const response = await fetch(`/api/location/proxy?type=search&q=${encodeURIComponent(val)}`)
-                    const data = await response.json()
-                    if (data && Array.isArray(data)) {
-                        setSuggestions(data.map((item: any) => item.display_name))
-                        setShowSuggestions(true)
-                    }
-                } catch (error) {
-                    console.error("Suggestions fetch failed:", error)
-                } finally {
-                    setIsDropoffSearching(false)
-                }
-            }, 600)
-        } else {
-            setShowSuggestions(false)
-        }
-    }
-
-    // Update mobile number if userdata loads after initialization
-    useEffect(() => {
-        if (userdata?.mobileNumber) {
-            setMobileNumber(userdata.mobileNumber)
-        }
-    }, [userdata])
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD] font-sans text-black pb-32">
-            {/* Header */}
-            <div className="bg-white/80 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-50 px-6 py-5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => router.back()} className="p-2.5 hover:bg-black/5 rounded-full transition-all active:scale-95 text-gray-400 hover:text-black">
-                        <ChevronLeft size={22} strokeWidth={2.5} />
+        <div className="min-h-screen bg-[#FDFDFD] text-black pb-40">
+            {/* Minimal Header */}
+            <header className="bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-50 px-6 py-5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => router.back()} className="p-2 hover:bg-black/5 rounded-full transition-transform active:scale-95">
+                        <ChevronLeft size={24} strokeWidth={2.5} />
                     </button>
-                    <div>
-                        <h1 className="text-lg font-black tracking-tight uppercase">Booking Details</h1>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">User Side</p>
-                    </div>
+                    <h1 className="text-lg font-black tracking-tight uppercase">Ready to Ride</h1>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center">
-                    <Info size={18} className="text-gray-400" />
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                    <ShieldCheck size={22} />
                 </div>
-            </div>
+            </header>
 
-            <main className="max-w-2xl mx-auto p-6 md:p-10 space-y-12">
-                
-                {/* Step 1: Choose Vehicle */}
-                <section className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-[10px] font-black">1</div>
-                            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Choose Vehicle</h2>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {vehicles.map((vehicle, index) => (
-                            <motion.button
-                                key={vehicle.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => setSelectedVehicle(vehicle.id)}
-                                className={`relative p-5 rounded-[2rem] border-2 transition-all duration-500 text-left flex items-center gap-4 group ${
-                                    selectedVehicle === vehicle.id 
-                                    ? 'bg-black border-black text-white shadow-2xl shadow-black/20' 
-                                    : 'bg-white border-black/5 text-black hover:border-black/10 shadow-sm'
-                                }`}
-                            >
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${
-                                    selectedVehicle === vehicle.id ? 'bg-white/15' : 'bg-black/5 group-hover:bg-black/10'
-                                }`}>
-                                    <vehicle.icon size={24} strokeWidth={selectedVehicle === vehicle.id ? 2.5 : 2} />
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="font-black text-base uppercase tracking-tight leading-tight">{vehicle.name}</h3>
-                                    <p className={`text-[11px] font-medium transition-colors duration-500 ${selectedVehicle === vehicle.id ? 'text-white/50' : 'text-gray-400'}`}>
-                                        {vehicle.desc}
-                                    </p>
-                                </div>
-                                {selectedVehicle === vehicle.id && (
-                                    <motion.div 
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        className="bg-white text-black rounded-full p-1"
-                                    >
-                                        <CheckCircle2 size={16} fill="currentColor" className="text-white" />
-                                    </motion.div>
-                                )}
-                            </motion.button>
-                        ))}
-                    </div>
-                </section>
-
-                {/* Step 2: Mobile */}
-                <section className="space-y-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-[10px] font-black">2</div>
-                        <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Mobile</h2>
-                    </div>
-
-                    <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-black/5 hover:border-black/10 transition-all flex items-center gap-5 group">
-                        <div className="w-14 h-14 bg-black/5 group-hover:bg-black/10 rounded-2xl flex items-center justify-center text-black/50 transition-colors">
-                            <Phone size={24} />
-                        </div>
-                        <div className="flex-1">
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Mobile Number</label>
+            <main className="max-w-2xl mx-auto p-6 space-y-10">
+                {/* 1. LOCATIONS SECTION */}
+                <section className="bg-white rounded-[2.5rem] shadow-sm border border-black/5 relative p-2">
+                    {/* Pickup */}
+                    <div className="p-6 flex items-center gap-5 relative group">
+                        <div className="w-3 h-3 rounded-full bg-black ring-4 ring-black/10 z-10" />
+                        <div className="absolute left-[31px] top-[40px] bottom-0 w-[2px] bg-black/5 group-hover:bg-black/10 transition-colors" />
+                        <div className="flex-1 relative">
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">From Pickup</label>
                             <input 
                                 type="text" 
-                                value={mobileNumber}
-                                onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, '').slice(0, 10)
-                                    setMobileNumber(val)
-                                }}
-                                placeholder="Enter 10 digit number"
-                                className="w-full bg-transparent border-none focus:ring-0 outline-none text-xl font-black p-0 tracking-tight placeholder:text-gray-200"
+                                value={pickup}
+                                onChange={handlePickupChange}
+                                className="w-full bg-transparent border-none focus:ring-0 outline-none text-[13px] font-black p-0 placeholder:text-gray-200"
+                                placeholder="Enter starting point"
                             />
-                        </div>
-                        <AnimatePresence>
-                            {mobileNumber.length === 10 && (
-                                <motion.div 
-                                    initial={{ scale: 0, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    exit={{ scale: 0, opacity: 0 }}
-                                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                                >
-                                    <CheckCircle2 size={28} className="text-emerald-500" fill="currentColor" />
-                                </motion.div>
+                            {showPickupSuggestions && (
+                                <div className="absolute top-full left-0 w-full bg-white shadow-2xl border border-black/5 rounded-2xl mt-2 z-[70] overflow-hidden">
+                                    {pickupSuggestions.map((s, i) => (
+                                        <button key={i} onClick={() => { setPickup(s); setPickupCoords({lat: parseFloat(pickupSuggestionData[i].lat), lon: parseFloat(pickupSuggestionData[i].lon)}); setShowPickupSuggestions(false); }} className="w-full px-5 py-4 text-left text-[11px] font-bold hover:bg-black/5 border-b border-black/5 last:border-0">{s}</button>
+                                    ))}
+                                </div>
                             )}
-                        </AnimatePresence>
-                    </div>
-                    <p className="text-[11px] font-bold text-gray-400 flex items-center gap-2 px-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${mobileNumber.length === 10 ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                        Ride updates will be sent to this number
-                    </p>
-                </section>
-
-                {/* Step 3: Route */}
-                <section className="space-y-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-[10px] font-black">3</div>
-                        <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Route</h2>
-                    </div>
-
-                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-black/5 relative">
-                        {/* Pickup */}
-                        <div className="p-6 flex items-center gap-5 relative group">
-                            <div className="w-3 h-3 rounded-full bg-black ring-4 ring-black/10 z-10" />
-                            <div className="absolute left-[31px] top-[40px] bottom-0 w-[2px] bg-black/5 group-hover:bg-black/10 transition-colors" />
-                            <div className="flex-1 relative">
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pickup Location</label>
-                                <input 
-                                    type="text" 
-                                    value={pickup}
-                                    onChange={handlePickupChange}
-                                    onFocus={() => { if (pickupSuggestions.length > 0) setShowPickupSuggestions(true); }}
-                                    className="w-full bg-transparent border-none focus:ring-0 outline-none text-[13px] font-black p-0 text-black placeholder:text-gray-300"
-                                    placeholder="Enter pickup point"
-                                />
-                                {isPickupSearching && (
-                                    <div className="absolute top-full left-0 w-full bg-white border border-black/5 rounded-3xl mt-2 p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest shadow-xl z-[70] flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-black animate-pulse" />
-                                        Searching Pickup...
-                                    </div>
-                                )}
-                                {showPickupSuggestions && !isPickupSearching && (
-                                    <div className="absolute top-full left-0 w-full bg-white shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-black/5 rounded-3xl mt-2 z-[70] overflow-hidden">
-                                        {pickupSuggestions.length > 0 ? (
-                                            pickupSuggestions.map((s, i) => (
-                                                <button 
-                                                    key={i}
-                                                    onClick={() => {
-                                                        setPickup(s)
-                                                        setShowPickupSuggestions(false)
-                                                    }}
-                                                    className="w-full px-6 py-4 text-left text-xs font-bold hover:bg-black/5 flex items-center gap-3 transition-colors text-black border-b border-black/[0.03] last:border-b-0"
-                                                >
-                                                    <MapPin size={14} className="text-gray-300" />
-                                                    {s}
-                                                </button>
-                                            ))
-                                        ) : (
-                                            <div className="p-6 text-center">
-                                                <Info size={20} className="mx-auto text-gray-300 mb-2" />
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching locations found</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <button 
-                                onClick={handleLocationClick}
-                                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isLocating ? 'bg-black text-white' : 'bg-black/5 text-black/40 hover:bg-black/10 hover:text-black'}`}
-                            >
-                                <LocateFixed size={18} className={isLocating ? 'animate-pulse' : ''} />
-                            </button>
                         </div>
-                        
-                        <div className="h-[1px] bg-black/5 mx-6" />
+                        <button onClick={getCurrentLocation} className={`w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center transition-all ${isLocating ? 'animate-pulse text-emerald-500' : 'text-black/40 hover:text-black hover:bg-black/10'}`}>
+                            <LocateFixed size={18} />
+                        </button>
+                    </div>
 
-                        {/* Dropoff */}
-                        <div className="p-6 flex items-center gap-5 relative group">
-                            <div className="w-3 h-3 bg-black ring-4 ring-black/10 rotate-45 z-10" />
-                            <div className="flex-1 relative">
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Destination</label>
-                                <input 
-                                    type="text" 
-                                    value={dropoff}
-                                    onChange={handleDropoffChange}
-                                    onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-                                    className="w-full bg-transparent border-none focus:ring-0 outline-none text-[13px] font-black p-0 text-black placeholder:text-gray-300"
-                                    placeholder="Where to?"
-                                />
-                                {isDropoffSearching && (
-                                    <div className="absolute top-full left-0 w-full bg-white border border-black/5 rounded-3xl mt-2 p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest shadow-xl z-[70] flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-black animate-pulse" />
-                                        Searching Destination...
-                                    </div>
-                                )}
-                                {showSuggestions && !isDropoffSearching && (
-                                    <div className="absolute top-full left-0 w-full bg-white shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-black/5 rounded-3xl mt-2 z-[70] overflow-hidden">
-                                        {suggestions.length > 0 ? (
-                                            suggestions.map((s, i) => (
-                                                <button 
-                                                    key={i}
-                                                    onClick={() => {
-                                                        setDropoff(s)
-                                                        setShowSuggestions(false)
-                                                    }}
-                                                    className="w-full px-6 py-4 text-left text-xs font-bold hover:bg-black/5 flex items-center gap-3 transition-colors text-black border-b border-black/[0.03] last:border-b-0"
-                                                >
-                                                    <MapPin size={14} className="text-gray-300" />
-                                                    {s}
-                                                </button>
-                                            ))
-                                        ) : (
-                                            <div className="p-6 text-center">
-                                                <Info size={20} className="mx-auto text-gray-300 mb-2" />
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching locations found</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <button className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center text-black/40 hover:bg-black/10 hover:text-black transition-all">
-                                <Search size={18} />
-                            </button>
+                    <div className="h-[1px] bg-black/5 mx-6" />
+
+                    {/* Destination */}
+                    <div className="p-6 flex items-center gap-5 relative group">
+                        <div className="w-3 h-3 bg-black ring-4 ring-black/10 rotate-45 z-10" />
+                        <div className="flex-1 relative">
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">To Destination</label>
+                            <input 
+                                type="text" 
+                                value={dropoff}
+                                onChange={handleDropoffChange}
+                                className="w-full bg-transparent border-none focus:ring-0 outline-none text-[13px] font-black p-0 placeholder:text-gray-200"
+                                placeholder="Where are you going?"
+                            />
+                            {showSuggestions && (
+                                <div className="absolute top-full left-0 w-full bg-white shadow-2xl border border-black/5 rounded-2xl mt-2 z-[70] overflow-hidden">
+                                    {suggestions.map((s, i) => (
+                                        <button key={i} onClick={() => { setDropoff(s); setDropoffCoords({lat: parseFloat(suggestionData[i].lat), lon: parseFloat(suggestionData[i].lon)}); setShowSuggestions(false); }} className="w-full px-5 py-4 text-left text-[11px] font-bold hover:bg-black/5 border-b border-black/5 last:border-0">{s}</button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </section>
 
+                {/* 2. CHOOSE RIDE SECTION - Only show when distance is calculated */}
+                <AnimatePresence>
+                    {distance ? (
+                        <motion.section 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="space-y-6"
+                        >
+                            <div className="flex items-center justify-between">
+                                 <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Select Vehicle & Price</h2>
+                                 <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
+                                     <Clock size={12} />
+                                     <span>Estimated distance: {distance.toFixed(1)} km</span>
+                                 </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                {[
+                                    { id: 'bike', icon: <Bike size={24} />, name: 'Moto', base: 12, time: '2 min' },
+                                    { id: 'auto', icon: <AutoIcon className="w-6 h-6" />, name: 'Auto', base: 18, time: '4 min' },
+                                    { id: 'car', icon: <Car size={24} />, name: 'UberGo', base: 25, time: '6 min' },
+                                    { id: 'truck', icon: <Truck size={24} />, name: 'UberXL', base: 40, time: '8 min' }
+                                ].map((v) => (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => setSelectedVehicle(v.id as any)}
+                                        className={`p-6 rounded-[2.5rem] border-2 text-left relative overflow-hidden transition-all duration-300 ${
+                                            selectedVehicle === v.id 
+                                            ? 'border-black bg-black text-white shadow-2xl scale-[1.02]' 
+                                            : 'border-gray-100 bg-white hover:border-black/10'
+                                        }`}
+                                    >
+                                        <div className={`${selectedVehicle === v.id ? 'text-white' : 'text-gray-400'} mb-6`}>
+                                            {v.icon}
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h3 className="text-xs font-black uppercase tracking-widest">{v.name}</h3>
+                                            <p className={`text-[9px] font-bold uppercase tracking-tight ${selectedVehicle === v.id ? 'text-white/40' : 'text-gray-300'}`}>
+                                                Arrival: {v.time}
+                                            </p>
+                                        </div>
+                                        <div className="mt-6 flex items-baseline gap-1">
+                                            <span className="text-[10px] font-black opacity-30 uppercase">₹</span>
+                                            <span className="text-2xl font-black italic">{getFare(v.base)}</span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </motion.section>
+                    ) : (
+                        <div className="bg-gray-50 rounded-[2.5rem] p-12 text-center border-2 border-dashed border-gray-200">
+                             <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-gray-300 mx-auto mb-6 shadow-sm">
+                                 <Navigation size={24} />
+                             </div>
+                             <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Find your destination</h3>
+                             <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mt-2 px-10">Select a location above to see available rides and pricing</p>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* 3. MOBILE NUMBER SECTION */}
+                <section className="bg-white border border-black/5 rounded-[2.5rem] p-8 shadow-sm">
+                    <div className="flex items-center gap-5">
+                         <div className="w-12 h-12 bg-black/5 rounded-2xl flex items-center justify-center text-black">
+                             <Phone size={22} />
+                         </div>
+                         <div className="flex-1">
+                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Confirmation Mobile</label>
+                             <input 
+                                 type="text" 
+                                 value={mobileNumber}
+                                 onChange={(e) => setMobileNumber(e.target.value)}
+                                 placeholder="Enter for trip updates"
+                                 className="w-full text-base font-black outline-none placeholder:text-gray-200"
+                             />
+                         </div>
+                    </div>
+                </section>
             </main>
 
-            {/* Sticky Bottom Action */}
-            <div className="fixed bottom-0 left-0 w-full p-6 md:p-8 bg-gradient-to-t from-white via-white to-transparent pointer-events-none">
-                <div className="max-w-xl mx-auto pointer-events-auto">
-                    <motion.button
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full bg-black text-white py-6 rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/40 hover:bg-gray-900 transition-all flex items-center justify-center gap-4 relative overflow-hidden group"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                        <span>Continue to Book</span>
-                        <ChevronLeft size={20} className="rotate-180" />
-                    </motion.button>
-                </div>
-            </div>
+            {/* STICKY BOOK BUTTON - Only show when distance is calculated */}
+            <AnimatePresence>
+                {distance && (
+                    <div className="fixed bottom-0 left-0 w-full p-6 md:p-8 bg-gradient-to-t from-white via-white/80 to-transparent z-[60]">
+                        <motion.div 
+                            initial={{ y: 100 }}
+                            animate={{ y: 0 }}
+                            exit={{ y: 100 }}
+                            className="max-w-2xl mx-auto"
+                        >
+                            <button 
+                                onClick={handleContinue}
+                                className="w-full bg-black text-white py-6 rounded-[2.5rem] text-sm font-black uppercase tracking-[0.3em] shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:bg-gray-900 transition-all flex items-center justify-center gap-4 group"
+                            >
+                                <span>Book {selectedVehicle} Now</span>
+                                <ChevronRight size={20} className="group-hover:translate-x-2 transition-transform" />
+                            </button>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }
