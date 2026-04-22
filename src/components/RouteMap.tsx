@@ -1,19 +1,21 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Tooltip } from 'react-leaflet'
 import L from 'leaflet'
 
 // Fix for default marker icons in Leaflet with Next.js
 const pickupIcon = L.divIcon({
     className: 'custom-marker',
-    html: `<div style="background: black; color: white; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; white-space: nowrap; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; bottom: 25px; left: -50%;">PICKUP<div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid black;"></div></div><div style="width: 8px; height: 8px; background: black; border-radius: 50%; border: 2px solid white;"></div>`,
-    iconSize: [0, 0],
+    html: `<div style="width: 12px; height: 12px; background: black; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 15px rgba(0,0,0,0.2);"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
 })
 
 const dropIcon = L.divIcon({
     className: 'custom-marker',
-    html: `<div style="background: black; color: white; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; white-space: nowrap; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; bottom: 25px; left: -50%;">DROP<div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid black;"></div></div><div style="width: 8px; height: 8px; background: black; border-radius: 50%; border: 2px solid white; transform: rotate(45deg);"></div>`,
-    iconSize: [0, 0],
+    html: `<div style="width: 12px; height: 12px; background: black; border-radius: 2px; border: 3px solid white; box-shadow: 0 0 15px rgba(0,0,0,0.2); transform: rotate(45deg);"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
 })
 
 const driverIcon = L.divIcon({
@@ -62,13 +64,20 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                 let start = pickup;
                 let end = drop;
 
-                if (stage === 'ARRIVING' && driver) {
+                // Phase-based path logic
+                if (stage === 'SEARCHING') {
+                    start = pickup;
+                    end = drop;
+                } else if ((stage === 'ARRIVING' || stage === 'OTP') && driver) {
                     start = driver;
                     end = pickup;
                 } else if (stage === 'ON_TRIP') {
+                    // Show the full route between pickup and drop
                     start = pickup;
                     end = drop;
                 }
+
+                if (!start || !end || start[0] === 0 || end[0] === 0) return
 
                 // Prevent zero-length route requests
                 if (start[0] === end[0] && start[1] === end[1]) return
@@ -108,7 +117,7 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
         }
 
         fetchRoute()
-    }, [pickup, drop])
+    }, [pickup, drop, driver, stage])
 
     const safePickup: [number, number] = (pickup && !isNaN(pickup[0]) && !isNaN(pickup[1])) ? pickup : [28.6139, 77.2090]
     const safeDrop: [number, number] = (drop && !isNaN(drop[0]) && !isNaN(drop[1])) ? drop : [28.6139, 77.2090]
@@ -163,23 +172,17 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                 )}
                 
                 <Marker position={safePickup} icon={pickupIcon}>
-                    {pickupName && (
-                        <Popup closeButton={false} autoClose={false} closeOnClick={false} className="custom-popup">
-                            <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap">{pickupName}</div>
-                        </Popup>
-                    )}
+                    <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
+                        <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/20 uppercase tracking-widest">Pickup</div>
+                    </Tooltip>
                 </Marker>
                 
-                {/* Only show destination label/marker when actually on trip */}
-                {stage === 'ON_TRIP' && (
-                    <Marker position={safeDrop} icon={dropIcon}>
-                        {dropName && (
-                            <Popup closeButton={false} autoClose={false} closeOnClick={false} className="custom-popup">
-                                <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap">{dropName}</div>
-                            </Popup>
-                        )}
-                    </Marker>
-                )}
+                {/* Show drop marker always so user knows where they are going */}
+                <Marker position={safeDrop} icon={dropIcon}>
+                    <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
+                        <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/20 uppercase tracking-widest">Drop</div>
+                    </Tooltip>
+                </Marker>
                 
                 {/* Show driver when they are en route or on trip */}
                 {driver && <Marker position={driver} icon={driverIcon} />}
@@ -196,18 +199,17 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                     justify-content: center;
                     z-index: 1000 !important;
                 }
-                .custom-popup .leaflet-popup-content-wrapper {
-                    background: transparent;
-                    box-shadow: none;
-                    border: none;
-                    padding: 0;
+                .custom-tooltip {
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    padding: 0 !important;
                 }
-                .custom-popup .leaflet-popup-tip {
-                    display: none;
+                .custom-tooltip::before {
+                    display: none !important;
                 }
-                .custom-popup .leaflet-popup-content {
-                    margin: 0;
-                    transform: translateY(-40px);
+                .custom-tooltip {
+                    z-index: 1000 !important;
                 }
             `}</style>
         </div>

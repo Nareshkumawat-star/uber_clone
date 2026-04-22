@@ -49,12 +49,12 @@ function StatusContent() {
     const [driverInfo, setDriverInfo] = useState<any>(null)
     const [otp, setOtp] = useState('')
     const [socket, setSocket] = useState<any>(null)
-    const rideIdRef = useRef(`ride_${Math.random().toString(36).substr(2, 9)}`)
 
     useEffect(() => {
         const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000')
         setSocket(socketInstance)
-        const currentRideId = rideIdRef.current
+        // Stable Ride ID based on coords to survive refreshes
+        const currentRideId = `ride_${plat}_${dlat}`
 
         socketInstance.emit('join_ride', { rideId: currentRideId })
 
@@ -73,32 +73,58 @@ function StatusContent() {
             setStage('ARRIVING')
             setDriverInfo(data)
             setDriverPos([data.partnerLocation.lat, data.partnerLocation.lon])
+            localStorage.setItem(`ride_stage_${currentRideId}`, 'ARRIVING');
+            localStorage.setItem(`ride_driver_${currentRideId}`, JSON.stringify(data));
         })
 
         socketInstance.on('partner_location_update', (data: any) => {
             const currentStage = stageRef.current
             // Check for arrival first (independent of position state)
-            if (currentStage === 'ARRIVING') {
-                const dist = (data.location && data.location.lat !== 0) ? Math.sqrt(Math.pow(data.location.lat - plat, 2) + Math.pow(data.location.lon - plon, 2)) : 999;
-                if (data.forceArrival || dist < 0.001) {
+            if (currentStage === 'ARRIVING' || data.forceArrival) {
+                if (data.forceArrival) {
+                    console.log('Force arrival received, showing OTP');
                     setStage('OTP');
+                    localStorage.setItem(`ride_stage_${currentRideId}`, 'OTP');
+                    return;
+                }
+                
+                const dist = (data.location && data.location.lat !== 0) ? Math.sqrt(Math.pow(data.location.lat - plat, 2) + Math.pow(data.location.lon - plon, 2)) : 999;
+                if (dist < 0.001) {
+                    setStage('OTP');
+                    localStorage.setItem(`ride_stage_${currentRideId}`, 'OTP');
                 }
             }
 
             // Then update position
             if (data.location && data.location.lat !== 0) {
-                setDriverPos([data.location.lat, data.location.lon]);
+                const newPos: [number, number] = [data.location.lat, data.location.lon];
+                setDriverPos(newPos);
+                localStorage.setItem(`ride_pos_${currentRideId}`, JSON.stringify(newPos));
             }
         })
 
         socketInstance.on('trip_started', () => {
-            setStage('ON_TRIP')
+            console.log('Trip started received!');
+            setStage('ON_TRIP');
+            localStorage.setItem(`ride_stage_${currentRideId}`, 'ON_TRIP');
         })
+
+        // On Mount: Recover state if possible
+        const savedStage = localStorage.getItem(`ride_stage_${currentRideId}`);
+        const savedDriver = localStorage.getItem(`ride_driver_${currentRideId}`);
+        const savedPos = localStorage.getItem(`ride_pos_${currentRideId}`);
+        
+        if (savedStage) {
+            setStage(savedStage as any);
+            stageRef.current = savedStage as any;
+        }
+        if (savedDriver) setDriverInfo(JSON.parse(savedDriver));
+        if (savedPos) setDriverPos(JSON.parse(savedPos));
 
         return () => {
             socketInstance.disconnect()
         }
-    }, [plat, plon, pickup, dropoff, fare, vehicle])
+    }, [plat, plon, pickup, dropoff])
 
     const handleOtpSubmit = () => {
         if (otp === '1234') {
@@ -137,6 +163,8 @@ function StatusContent() {
                         drop={[dlat, dlon]} 
                         driver={driverPos}
                         stage={stage}
+                        pickupName={pickup}
+                        dropName={dropoff}
                     />
                 </div>
 
@@ -191,7 +219,7 @@ function StatusContent() {
                                     <div className="bg-black/5 p-8 rounded-[2rem] border-2 border-dashed border-black/10 text-center space-y-4">
                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Share this code with your driver</p>
                                         <div className="flex justify-center gap-4">
-                                            {(driverInfo?.otp || '1234').split('').map((char: string, i: number) => (
+                                            {(driverInfo?.otp || '----').split('').map((char: string, i: number) => (
                                                 <div key={i} className="w-14 h-18 bg-white shadow-xl rounded-2xl flex items-center justify-center text-3xl font-black text-black border border-black/5">
                                                     {char}
                                                 </div>
@@ -208,6 +236,21 @@ function StatusContent() {
                             </motion.div>
                         ) : (
                             <motion.div key="info" initial={{ opacity:0 }} animate={{ opacity:1 }} className="space-y-6">
+                                {stage === 'ON_TRIP' && (
+                                    <motion.div 
+                                        initial={{ y: -10, opacity: 0 }} 
+                                        animate={{ y: 0, opacity: 1 }}
+                                        className="bg-emerald-600 p-5 rounded-[2rem] flex items-center gap-4 shadow-xl shadow-emerald-500/20"
+                                    >
+                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
+                                            <Check size={20} className="text-white" strokeWidth={3} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-black uppercase text-white tracking-widest italic">Trip Started Successfully</p>
+                                            <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest">Enjoy your premium ride</p>
+                                        </div>
+                                    </motion.div>
+                                )}
                                 {/* Driver Info Card */}
                                 <div className="flex items-center justify-between bg-gray-50/50 p-6 rounded-[2.5rem] border border-black/5">
                                     <div className="flex items-center gap-4">
