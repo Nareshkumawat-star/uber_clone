@@ -158,6 +158,11 @@ export default function BookingPage() {
         const geocode = async (text: string) => {
             try {
                 const res = await fetch(`/api/location/proxy?type=search&q=${encodeURIComponent(text)}`)
+                if (!res.ok) return null
+                
+                const contentType = res.headers.get("content-type")
+                if (!contentType || !contentType.includes("application/json")) return null
+
                 const data = await res.json()
                 if (data && data[0]) {
                     return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }

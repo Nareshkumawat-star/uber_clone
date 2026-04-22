@@ -26,17 +26,34 @@ const STAT_CONFIG = [
 ];
 
 const TABS = [
-    { id: 'partner', label: 'Pending Partner Reviews', icon: Users, badgeKey: 'pending', badgeType: 'error' },
-    { id: 'kyc', label: 'Pending Video KYC', icon: Video, badgeKey: 'pendingKyc', badgeType: 'error' },
-    { id: 'final', label: 'Final Review', icon: Car, badgeKey: 'pendingFinal', badgeType: 'neutral' },
+    { id: 'partner', label: 'Pending Partner Reviews', icon: Users, badgeKey: 'pending', badgeType: 'error', badgeValue: 0 },
+    { id: 'kyc', label: 'Pending Video KYC', icon: Video, badgeKey: 'pendingKyc', badgeType: 'error', badgeValue: 0 },
+    { id: 'final', label: 'Final Review', icon: Car, badgeKey: 'pendingFinal', badgeType: 'neutral', badgeValue: 0 },
 ];
+
+interface Vehicle {
+    _id: string;
+    vechileType: string;
+    vechileModel: string;
+    number: string;
+    imageurl?: string;
+    basfare?: number;
+}
+
+interface Partner {
+    _id: string;
+    name: string;
+    email: string;
+    vehicle?: Vehicle;
+    [key: string]: any;
+}
 
 function AdminDashboard() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('partner');
-    const [partners, setPartners] = useState<any[]>([]);
-    const [kycPartners, setKycPartners] = useState<any[]>([]);
-    const [finalPartners, setFinalPartners] = useState<any[]>([]);
+    const [partners, setPartners] = useState<Partner[]>([]);
+    const [kycPartners, setKycPartners] = useState<Partner[]>([]);
+    const [finalPartners, setFinalPartners] = useState<Partner[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, pendingKyc: 0, pendingFinal: 0 });
 
@@ -159,7 +176,7 @@ function AdminDashboard() {
                 {/* Navigation Tabs - Responsive Scrollable */}
                 <div className="bg-white rounded-[2rem] p-2 shadow-sm border border-gray-100 flex items-center gap-2 mb-8 overflow-x-auto scrollbar-hide">
                     {TABS.map((tab) => {
-                        const badgeValue = tab.badgeKey ? stats[tab.badgeKey as keyof typeof stats] : tab.badgeValue;
+                        const badgeValue = tab.badgeKey ? (stats as any)[tab.badgeKey] : tab.badgeValue;
                         return (
                             <button
                                 key={tab.id}
@@ -248,7 +265,7 @@ function AdminDashboard() {
                                 </div>
                             </div>
                         ) : (
-                            kycPartners.map((partner: any) => (
+                            kycPartners.map((partner) => (
                                 <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:border-black/10 transition-all flex-wrap gap-4">
                                     <div className="flex items-center gap-6">
                                         <div className="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center text-xl font-bold border border-purple-100 text-purple-600">
@@ -301,12 +318,12 @@ function AdminDashboard() {
                                 </div>
                             </div>
                         ) : (
-                            finalPartners.map((partner: any) => (
+                            finalPartners.map((partner) => (
                                 <div key={partner._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:border-black/10 transition-all">
                                     <div className="flex items-center gap-6">
                                         <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-xl font-bold border border-blue-100 text-blue-600 overflow-hidden">
                                             {partner.vehicle?.imageurl ? (
-                                                <img src={partner.vehicle.imageurl} className="w-full h-full object-cover" />
+                                                <img src={partner.vehicle.imageurl} alt={partner.name} className="w-full h-full object-cover" />
                                             ) : (
                                                 partner.name?.charAt(0)
                                             )}

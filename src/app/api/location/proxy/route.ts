@@ -7,11 +7,15 @@ export async function GET(request: Request) {
     const lat = searchParams.get('lat');
     const lon = searchParams.get('lon');
 
+    const path = searchParams.get('path'); // lon1,lat1;lon2,lat2
+
     let url = '';
     if (type === 'reverse' && lat && lon) {
         url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`;
     } else if (type === 'search' && q) {
         url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=5`;
+    } else if (type === 'route' && path) {
+        url = `https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson`;
     } else {
         return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
@@ -19,10 +23,10 @@ export async function GET(request: Request) {
     try {
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'GoRideApp/1.0 (goride.booking@gmail.com)',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'application/json',
-                'Referer': 'https://goride.app',
-                'Accept-Language': 'en',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
             },
         });
 
