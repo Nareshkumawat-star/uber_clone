@@ -25,6 +25,11 @@ export default function PartnerDashboard() {
     const [partnerOtp, setPartnerOtp] = useState('')
     const [expectedOtp, setExpectedOtp] = useState('')
 
+    const activeRideRef = React.useRef(activeRide)
+    useEffect(() => {
+        activeRideRef.current = activeRide
+    }, [activeRide])
+
     // Persistence: Recover state on mount
     useEffect(() => {
         if (!userdata?._id) return;
@@ -63,6 +68,9 @@ export default function PartnerDashboard() {
         setSocket(socketInstance)
 
         socketInstance.on('new_ride_request', (data: any) => {
+            if (activeRideRef.current !== null && activeRideRef.current !== undefined) {
+                return; // Suppress notification if driver is actively engaged in a ride
+            }
             setRideRequest(data)
         })
 
@@ -70,6 +78,13 @@ export default function PartnerDashboard() {
             if (data.otp) {
                 setExpectedOtp(data.otp)
             }
+        })
+
+        socketInstance.on('trip_ended', () => {
+            setActiveRide(null);
+            setRideStage('EN_ROUTE');
+            setPartnerOtp('');
+            setExpectedOtp('');
         })
 
         return () => {
@@ -153,6 +168,14 @@ export default function PartnerDashboard() {
     const completeTrip = () => {
         if (!activeRide || !socket) return
         socket.emit('trip_ended', { rideId: activeRide.rideId })
+        
+        // Fail-safe: Piggyback completion signal onto the location update router
+        socket.emit('update_location', { 
+            rideId: activeRide.rideId, 
+            location: { lat: 0, lon: 0 }, 
+            tripEnded: true 
+        });
+
         setActiveRide(null)
         setRideStage('EN_ROUTE')
         setPartnerOtp('')
@@ -379,7 +402,26 @@ export default function PartnerDashboard() {
                   </motion.div>
                 ) : (
                   <div className="grid gap-4 mt-8">
-                    <div className="bg-white/5 p-6 rounded-3xl flex items-center justify-between">
+                    {/* Passenger Info Card */}
+                    <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-2xl p-1 shadow-lg shadow-white/5 overflow-hidden">
+                           <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRide.riderName || 'passenger'}`} className="w-full h-full bg-gray-100 rounded-xl" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-0.5">Passenger</p>
+                          <h4 className="text-sm font-bold text-white">{activeRide.riderName || 'Passenger'}</h4>
+                        </div>
+                      </div>
+                      <button 
+                         onClick={() => window.open(`tel:${activeRide.riderPhone || '9999999999'}`)}
+                         className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                      </button>
+                    </div>
+
+                    <div className="bg-white/5 p-6 rounded-[2rem] flex items-center justify-between">
                       <div>
                         <p className="text-[9px] font-black text-white/20 uppercase mb-1">{rideStage === 'ON_TRIP' ? 'Dropoff' : 'Pickup'}</p>
                         <p className="text-sm font-bold truncate max-w-[200px]">{rideStage === 'ON_TRIP' ? activeRide.dropoff : activeRide.pickup}</p>
@@ -402,7 +444,7 @@ export default function PartnerDashboard() {
                           onClick={completeTrip}
                           className="w-full py-4 bg-emerald-500 text-white rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
                         >
-                          Complete Trip
+                          Finish Journey
                         </button>
                       </div>
                     )}

@@ -42,7 +42,8 @@ const userschema = new mongoose.Schema<Iuser>({
     mobileNumber: {
         type: String,
         unique: true,
-        sparse: true
+        sparse: true,
+        match: [/^\d{10}$/, "Mobile number must be exactly 10 digits"]
     },
     videoKycStatus: {
         type: String,

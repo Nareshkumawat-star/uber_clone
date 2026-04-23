@@ -5,7 +5,7 @@ import User from "@/models/user.model"
 export async function POST(req: NextRequest) {
     try {
 
-        const { name, email, password } = await req.json()
+        const { name, email, password, mobileNumber } = await req.json()
         await connectDB()
 
         const user = await User.findOne({ email })
@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
         const newUser = new User({
             name,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            mobileNumber
         })
         await newUser.save()
         return NextResponse.json({ message: "User created successfully", newUser }, { status: 201 })

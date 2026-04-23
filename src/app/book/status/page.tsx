@@ -26,9 +26,14 @@ const AutoIcon = ({ className }: { className?: string }) => (
 
 import { io } from 'socket.io-client'
 
+import { useSelector } from 'react-redux'
+import { RootState } from '@/redux/store'
+
 function StatusContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
+    
+    const { userdata } = useSelector((state: RootState) => state.user)
     
     const pickup = searchParams.get('pickup') || 'Pickup Point'
     const dropoff = searchParams.get('dropoff') || 'Destination'
@@ -38,6 +43,8 @@ function StatusContent() {
     const dlat = parseFloat(searchParams.get('dlat') || '0')
     const dlon = parseFloat(searchParams.get('dlon') || '0')
     const fare = vehicle === 'bike' ? '45' : vehicle === 'auto' ? '70' : vehicle === 'car' ? '150' : '200'
+
+    const currentRideId = `ride_${plat}_${dlat}`
 
     const [stage, _setStage] = useState<'SEARCHING' | 'ARRIVING' | 'OTP' | 'ON_TRIP' | 'COMPLETED'>('SEARCHING')
     const stageRef = useRef(stage)
@@ -52,8 +59,6 @@ function StatusContent() {
     const [socket, setSocket] = useState<any>(null)
 
     useEffect(() => {
-        const currentRideId = `ride_${plat}_${dlat}`
-        
         // 1. Recover state immediately on mount
         const savedStage = localStorage.getItem(`ride_stage_${currentRideId}`);
         const savedDriver = localStorage.getItem(`ride_driver_${currentRideId}`);
@@ -82,7 +87,9 @@ function StatusContent() {
                 fare,
                 vehicleType: vehicle,
                 location: { lat: plat, lon: plon },
-                destination: { lat: dlat, lon: dlon }
+                destination: { lat: dlat, lon: dlon },
+                riderName: userdata?.name || 'Passenger',
+                riderPhone: userdata?.mobileNumber || 'XXXXXXXXXX'
             })
         }
 
@@ -96,6 +103,14 @@ function StatusContent() {
 
         socketInstance.on('partner_location_update', (data: any) => {
             const currentStage = stageRef.current
+            
+            // Bypass processing if fail-safe tripEnded flag was passed
+            if (data.tripEnded) {
+                setStage('COMPLETED');
+                localStorage.setItem(`ride_stage_${currentRideId}`, 'COMPLETED');
+                return;
+            }
+
             if (currentStage === 'COMPLETED') return; // Ignore updates if finished
 
             if (currentStage === 'ARRIVING' || data.forceArrival) {
@@ -180,64 +195,7 @@ function StatusContent() {
                 {/* SLIDING BOTTOM PANEL */}
                 <div className="flex-1 bg-white rounded-t-[2.5rem] shadow-[0_-20px_60px_rgba(0,0,0,0.1)] p-6 -mt-10 relative z-40 space-y-6">
                     <AnimatePresence mode="wait">
-                        {stage === 'COMPLETED' ? (
-                            <motion.div 
-                                key="rating" 
-                                initial={{ opacity: 0, scale: 0.95, y: 20 }} 
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                className="space-y-8 py-4 "
-                            >
-                                <div className="text-center space-y-4">
-                                    <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2 border-2 border-emerald-500/20">
-                                        <CheckCircle2 size={48} className="text-emerald-500" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <h2 className="text-3xl font-black uppercase tracking-tighter italic">Ride Completed!</h2>
-                                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest px-10">Rate your experience with {driverInfo?.partnerName || 'your driver'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-50/50 p-8 rounded-[3rem] border border-black/5 space-y-8 shadow-sm">
-                                    <div className="flex justify-center gap-3">
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                            <button 
-                                                key={star} 
-                                                onClick={() => setRating(star)}
-                                                className="group relative transition-all duration-300"
-                                            >
-                                                <Star 
-                                                    size={42} 
-                                                    fill={star <= rating ? "#000" : "none"} 
-                                                    strokeWidth={1.5}
-                                                    className={`${star <= rating ? "text-black scale-110" : "text-gray-300"} transition-all group-active:scale-90`} 
-                                                />
-                                                {star <= rating && (
-                                                    <motion.div 
-                                                        layoutId="star-glow"
-                                                        className="absolute inset-0 bg-black/5 blur-xl rounded-full -z-10"
-                                                    />
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <button 
-                                            onClick={() => router.push('/')}
-                                            className="w-full py-5 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-[0.98] transition-all hover:bg-black/90"
-                                        >
-                                            Submit Rating
-                                        </button>
-                                        <button 
-                                            onClick={() => router.push('/')}
-                                            className="w-full py-4 text-black/30 hover:text-black/60 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
-                                        >
-                                            Skip for now
-                                        </button>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ) : stage === 'SEARCHING' ? (
+                        {stage === 'SEARCHING' ? (
                             <motion.div 
                                 key="searching" 
                                 initial={{ opacity: 0, y: 20 }} 
@@ -349,15 +307,15 @@ function StatusContent() {
                                 {/* Trip Progress Indicator */}
                                 <div className="bg-white border border-black/5 p-6 rounded-[2.5rem] space-y-5">
                                     <div className="flex items-start gap-4">
-                                        <div className={`w-3 h-3 rounded-full mt-1.5 ${stage === 'ON_TRIP' ? 'bg-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-black'}`} />
+                                        <div className={`w-3 h-3 rounded-full mt-1.5 ${stage === 'ON_TRIP' || stage === 'COMPLETED' ? 'bg-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-black'}`} />
                                         <div className="flex-1">
-                                            <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">{stage === 'ON_TRIP' ? 'Currently at' : 'Pickup From'}</p>
+                                            <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">{stage === 'ON_TRIP' || stage === 'COMPLETED' ? 'Currently at' : 'Pickup From'}</p>
                                             <p className="text-[11px] font-bold text-black/80">{pickup}</p>
                                         </div>
                                     </div>
                                     <div className="h-[1px] bg-black/5 ml-7" />
                                     <div className="flex items-start gap-4">
-                                        <div className={`w-3 h-3 rotate-45 mt-1.5 ${stage === 'ON_TRIP' ? 'bg-black' : 'bg-gray-100'}`} />
+                                        <div className={`w-3 h-3 rotate-45 mt-1.5 ${stage === 'ON_TRIP' || stage === 'COMPLETED' ? 'bg-black' : 'bg-gray-100'}`} />
                                         <div className="flex-1">
                                             <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Destination To</p>
                                             <p className="text-[11px] font-bold text-black/80">{dropoff}</p>
@@ -376,12 +334,82 @@ function StatusContent() {
                                          vehicle === 'bike' ? <Bike size={24} /> : <Car size={24} />}
                                     </div>
                                 </div>
-
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
             </main>
+
+            {/* FULL SCREEN RATING MODAL POPUP */}
+            <AnimatePresence>
+                {stage === 'COMPLETED' && (
+                    <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm p-4 pb-12"
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9, y: 100 }} 
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 100 }}
+                            className="bg-white w-full max-w-md rounded-[3rem] p-8 space-y-8 shadow-2xl relative overflow-hidden"
+                        >
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                            
+                            <div className="text-center space-y-4 relative z-10">
+                                <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2 border-2 border-emerald-500/20">
+                                    <CheckCircle2 size={48} className="text-emerald-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-3xl font-black uppercase tracking-tighter italic text-black">Ride Completed!</h2>
+                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest px-6">Rate your experience with {driverInfo?.partnerName || 'your driver'}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50/50 p-8 rounded-[2rem] border border-black/5 space-y-8 shadow-sm relative z-10">
+                                <div className="flex justify-center gap-3">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button 
+                                            key={star} 
+                                            onClick={() => setRating(star)}
+                                            className="group relative transition-all duration-300"
+                                        >
+                                            <Star 
+                                                size={42} 
+                                                fill={star <= rating ? "#000" : "none"} 
+                                                strokeWidth={1.5}
+                                                className={`${star <= rating ? "text-black scale-110" : "text-gray-300"} transition-all group-active:scale-90`} 
+                                            />
+                                            {star <= rating && (
+                                                <motion.div 
+                                                    layoutId="star-glow"
+                                                    className="absolute inset-0 bg-black/5 blur-xl rounded-full -z-10"
+                                                />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="space-y-3">
+                                    <button 
+                                        onClick={() => router.push('/')}
+                                        className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all"
+                                    >
+                                        Submit Rating
+                                    </button>
+                                    <button 
+                                        onClick={() => router.push('/')}
+                                        className="w-full py-4 text-black/40 hover:text-black rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
+                                    >
+                                        Skip for now
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

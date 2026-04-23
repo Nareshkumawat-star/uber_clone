@@ -175,6 +175,11 @@ export default function BookingPage() {
             alert("Please fill in all details")
             return
         }
+        
+        if (mobileNumber.length !== 10) {
+            alert("Please enter a valid 10-digit confirmation mobile number")
+            return
+        }
 
         let pLatLong = pickupCoords
         let dLatLong = dropoffCoords
@@ -353,8 +358,12 @@ export default function BookingPage() {
                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Confirmation Mobile</label>
                              <input 
                                  type="text" 
+                                 maxLength={10}
                                  value={mobileNumber}
-                                 onChange={(e) => setMobileNumber(e.target.value)}
+                                 onChange={(e) => {
+                                     const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                     setMobileNumber(val);
+                                 }}
                                  placeholder="Enter for trip updates"
                                  className="w-full text-base font-black outline-none placeholder:text-gray-200"
                              />

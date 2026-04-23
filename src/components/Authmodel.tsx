@@ -10,6 +10,7 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
     const [email, setemail] = useState("")
     const [password, setpassword] = useState("")
     const [name, setname] = useState("")
+    const [mobileNumber, setMobileNumber] = useState("")
     const [loading, setloading] = useState(false)
     const [error, seterror] = useState("")
     const [otp , setotp] = useState(["","","","","",""])
@@ -35,7 +36,7 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
         try {
             const code = otp.join("")
             const { data } = await axios.post("/api/auth/register", {
-                name, email, password, code
+                name, email, password, mobileNumber, code
             })
             console.log(data)
             setstep("login")
@@ -148,14 +149,28 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
                                 {/* Form */}
                                 <div className="space-y-3">
                                     {step === "signup" && (
-                                        <div className="relative group">
-                                            <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
-                                            <input
-                                                type="text"
-                                                placeholder="Full Name"
-                                                className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
-                                                onChange={(e)=>setname(e.target.value)} value={name} />
-                                        </div>
+                                        <>
+                                            <div className="relative group">
+                                                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Full Name"
+                                                    className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
+                                                    onChange={(e)=>setname(e.target.value)} value={name} />
+                                            </div>
+                                            <div className="relative group">
+                                                <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" fill="none" strokeWidth="2" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Mobile Number (10 Digits)"
+                                                    maxLength={10}
+                                                    className="w-full bg-black/5 border border-transparent focus:border-black/10 focus:bg-white rounded-none py-4 pl-14 pr-6 text-xs font-bold transition-all outline-none text-black"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                                        setMobileNumber(val);
+                                                    }} value={mobileNumber} />
+                                            </div>
+                                        </>
                                     )}
                                     <div className="relative group">
                                         <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
@@ -181,7 +196,7 @@ function Authmodel({ open, onclose }: { open: boolean; onclose: () => void }) {
 
                                 {/* Action Button */}
                                 {(() => {
-                                    const isSignupValid = name.trim() !== "" && email.trim() !== "" && password.length >= 6;
+                                    const isSignupValid = name.trim() !== "" && email.trim() !== "" && password.length >= 6 && mobileNumber.length === 10;
                                     const isLoginValid = email.trim() !== "" && password.trim() !== "";
                                     const isOtpValid = otp.every(digit => digit !== "");
                                     const isValid = step === "signup" ? isSignupValid : (step === "login" ? isLoginValid : isOtpValid);
