@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import { 
     MapPin, Navigation, ChevronLeft, ShieldCheck, Clock, 
-    Bike, Car, Truck, Phone, Star, Info, CheckCircle2, Lock 
+    Bike, Car, Truck, Phone, Star, Info, CheckCircle2, Lock, Check 
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -39,7 +39,7 @@ function StatusContent() {
     const dlon = parseFloat(searchParams.get('dlon') || '0')
     const fare = vehicle === 'bike' ? '45' : vehicle === 'auto' ? '70' : vehicle === 'car' ? '150' : '200'
 
-    const [stage, _setStage] = useState<'SEARCHING' | 'ARRIVING' | 'OTP' | 'ON_TRIP'>('SEARCHING')
+    const [stage, _setStage] = useState<'SEARCHING' | 'ARRIVING' | 'OTP' | 'ON_TRIP' | 'COMPLETED'>('SEARCHING')
     const stageRef = useRef(stage)
     const setStage = (s: any) => {
         stageRef.current = s
@@ -48,26 +48,43 @@ function StatusContent() {
     const [driverPos, setDriverPos] = useState<[number, number] | null>(null)
     const [driverInfo, setDriverInfo] = useState<any>(null)
     const [otp, setOtp] = useState('')
+    const [rating, setRating] = useState(0)
     const [socket, setSocket] = useState<any>(null)
 
     useEffect(() => {
+        const currentRideId = `ride_${plat}_${dlat}`
+        
+        // 1. Recover state immediately on mount
+        const savedStage = localStorage.getItem(`ride_stage_${currentRideId}`);
+        const savedDriver = localStorage.getItem(`ride_driver_${currentRideId}`);
+        const savedPos = localStorage.getItem(`ride_pos_${currentRideId}`);
+        
+        let initialStage: any = 'SEARCHING';
+        if (savedStage) {
+            initialStage = savedStage;
+            setStage(savedStage as any);
+            stageRef.current = savedStage as any;
+        }
+        if (savedDriver) setDriverInfo(JSON.parse(savedDriver));
+        if (savedPos) setDriverPos(JSON.parse(savedPos));
+
         const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000')
         setSocket(socketInstance)
-        // Stable Ride ID based on coords to survive refreshes
-        const currentRideId = `ride_${plat}_${dlat}`
 
         socketInstance.emit('join_ride', { rideId: currentRideId })
 
-        // Emit actual ride request to all partners
-        socketInstance.emit('request_ride', {
-            rideId: currentRideId,
-            pickup,
-            dropoff,
-            fare,
-            vehicleType: vehicle,
-            location: { lat: plat, lon: plon },
-            destination: { lat: dlat, lon: dlon }
-        })
+        // 2. Only request ride if we are starting fresh in SEARCHING stage
+        if (initialStage === 'SEARCHING') {
+            socketInstance.emit('request_ride', {
+                rideId: currentRideId,
+                pickup,
+                dropoff,
+                fare,
+                vehicleType: vehicle,
+                location: { lat: plat, lon: plon },
+                destination: { lat: dlat, lon: dlon }
+            })
+        }
 
         socketInstance.on('ride_accepted', (data: any) => {
             setStage('ARRIVING')
@@ -79,10 +96,10 @@ function StatusContent() {
 
         socketInstance.on('partner_location_update', (data: any) => {
             const currentStage = stageRef.current
-            // Check for arrival first (independent of position state)
+            if (currentStage === 'COMPLETED') return; // Ignore updates if finished
+
             if (currentStage === 'ARRIVING' || data.forceArrival) {
                 if (data.forceArrival) {
-                    console.log('Force arrival received, showing OTP');
                     setStage('OTP');
                     localStorage.setItem(`ride_stage_${currentRideId}`, 'OTP');
                     return;
@@ -95,7 +112,6 @@ function StatusContent() {
                 }
             }
 
-            // Then update position
             if (data.location && data.location.lat !== 0) {
                 const newPos: [number, number] = [data.location.lat, data.location.lon];
                 setDriverPos(newPos);
@@ -104,22 +120,14 @@ function StatusContent() {
         })
 
         socketInstance.on('trip_started', () => {
-            console.log('Trip started received!');
             setStage('ON_TRIP');
             localStorage.setItem(`ride_stage_${currentRideId}`, 'ON_TRIP');
         })
 
-        // On Mount: Recover state if possible
-        const savedStage = localStorage.getItem(`ride_stage_${currentRideId}`);
-        const savedDriver = localStorage.getItem(`ride_driver_${currentRideId}`);
-        const savedPos = localStorage.getItem(`ride_pos_${currentRideId}`);
-        
-        if (savedStage) {
-            setStage(savedStage as any);
-            stageRef.current = savedStage as any;
-        }
-        if (savedDriver) setDriverInfo(JSON.parse(savedDriver));
-        if (savedPos) setDriverPos(JSON.parse(savedPos));
+        socketInstance.on('trip_ended', () => {
+            setStage('COMPLETED');
+            localStorage.setItem(`ride_stage_${currentRideId}`, 'COMPLETED');
+        })
 
         return () => {
             socketInstance.disconnect()
@@ -146,7 +154,8 @@ function StatusContent() {
                         <h1 className="text-sm font-black uppercase tracking-tight">
                             {stage === 'SEARCHING' ? 'Finding Ride...' : 
                              stage === 'ARRIVING' ? 'Driver Arriving' : 
-                             stage === 'OTP' ? 'Verification' : 'Trip in Progress'}
+                             stage === 'OTP' ? 'Verification' : 
+                             stage === 'ON_TRIP' ? 'Trip in Progress' : 'Trip Completed'}
                         </h1>
                     </div>
                 </div>
@@ -171,7 +180,64 @@ function StatusContent() {
                 {/* SLIDING BOTTOM PANEL */}
                 <div className="flex-1 bg-white rounded-t-[2.5rem] shadow-[0_-20px_60px_rgba(0,0,0,0.1)] p-6 -mt-10 relative z-40 space-y-6">
                     <AnimatePresence mode="wait">
-                        {stage === 'SEARCHING' ? (
+                        {stage === 'COMPLETED' ? (
+                            <motion.div 
+                                key="rating" 
+                                initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                className="space-y-8 py-4 "
+                            >
+                                <div className="text-center space-y-4">
+                                    <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2 border-2 border-emerald-500/20">
+                                        <CheckCircle2 size={48} className="text-emerald-500" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h2 className="text-3xl font-black uppercase tracking-tighter italic">Ride Completed!</h2>
+                                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest px-10">Rate your experience with {driverInfo?.partnerName || 'your driver'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-50/50 p-8 rounded-[3rem] border border-black/5 space-y-8 shadow-sm">
+                                    <div className="flex justify-center gap-3">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <button 
+                                                key={star} 
+                                                onClick={() => setRating(star)}
+                                                className="group relative transition-all duration-300"
+                                            >
+                                                <Star 
+                                                    size={42} 
+                                                    fill={star <= rating ? "#000" : "none"} 
+                                                    strokeWidth={1.5}
+                                                    className={`${star <= rating ? "text-black scale-110" : "text-gray-300"} transition-all group-active:scale-90`} 
+                                                />
+                                                {star <= rating && (
+                                                    <motion.div 
+                                                        layoutId="star-glow"
+                                                        className="absolute inset-0 bg-black/5 blur-xl rounded-full -z-10"
+                                                    />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <button 
+                                            onClick={() => router.push('/')}
+                                            className="w-full py-5 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-[0.98] transition-all hover:bg-black/90"
+                                        >
+                                            Submit Rating
+                                        </button>
+                                        <button 
+                                            onClick={() => router.push('/')}
+                                            className="w-full py-4 text-black/30 hover:text-black/60 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
+                                        >
+                                            Skip for now
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ) : stage === 'SEARCHING' ? (
                             <motion.div 
                                 key="searching" 
                                 initial={{ opacity: 0, y: 20 }} 
@@ -213,23 +279,24 @@ function StatusContent() {
                             <motion.div key="otp" initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} className="space-y-6">
                                 <div className="text-center space-y-2">
                                     <h2 className="text-lg font-black uppercase tracking-tighter italic text-emerald-500">Driver has Arrived!</h2>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Share OTP with {driverInfo?.partnerName || 'Rider'} to start</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Share this OTP with {driverInfo?.partnerName || 'your driver'} to start trip</p>
                                 </div>
                                 <div className="space-y-4">
-                                    <div className="bg-black/5 p-8 rounded-[2rem] border-2 border-dashed border-black/10 text-center space-y-4">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Share this code with your driver</p>
-                                        <div className="flex justify-center gap-4">
-                                            {(driverInfo?.otp || '----').split('').map((char: string, i: number) => (
-                                                <div key={i} className="w-14 h-18 bg-white shadow-xl rounded-2xl flex items-center justify-center text-3xl font-black text-black border border-black/5">
-                                                    {char}
-                                                </div>
-                                            ))}
+                                    <div className="bg-black text-white p-10 rounded-[3rem] text-center space-y-4 shadow-2xl relative overflow-hidden group">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
+                                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative z-10">Trip Verification Code</p>
+                                        <h3 className="text-6xl font-black italic tracking-[0.2em] relative z-10 text-emerald-400">
+                                            {driverInfo?.otp || '1234'}
+                                        </h3>
+                                        <div className="flex items-center justify-center gap-2 text-[9px] font-black text-white/20 uppercase tracking-widest relative z-10">
+                                            <Lock size={10} />
+                                            <span>Secure verification</span>
                                         </div>
                                     </div>
-                                    <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 text-center">
+                                    <div className="bg-emerald-500/10 p-5 rounded-2xl border border-emerald-500/20 text-center">
                                         <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center justify-center gap-2">
-                                            <ShieldCheck size={14} />
-                                            Safe & Verified Trip
+                                            <CheckCircle2 size={14} />
+                                            Verified Safety Shield Active
                                         </p>
                                     </div>
                                 </div>
@@ -309,6 +376,7 @@ function StatusContent() {
                                          vehicle === 'bike' ? <Bike size={24} /> : <Car size={24} />}
                                     </div>
                                 </div>
+
                             </motion.div>
                         )}
                     </AnimatePresence>

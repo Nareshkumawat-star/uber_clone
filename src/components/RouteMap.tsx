@@ -71,8 +71,11 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                 } else if ((stage === 'ARRIVING' || stage === 'OTP') && driver) {
                     start = driver;
                     end = pickup;
+                } else if (stage === 'ON_TRIP' && driver) {
+                    // Show path from driver's CURRENT position to destination
+                    start = driver;
+                    end = drop;
                 } else if (stage === 'ON_TRIP') {
-                    // Show the full route between pickup and drop
                     start = pickup;
                     end = drop;
                 }
@@ -109,10 +112,13 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                 }
                 
                 // Final fallback only if no data
-                setRoute([pickup, drop])
+                setRoute([start, end])
             } catch (err) {
                 console.error("Routing error:", err)
-                setRoute([pickup, drop])
+                // Use the calculated start/end for fallback
+                const fallbackStart = ((stage === 'ARRIVING' || stage === 'OTP') && driver) ? driver : pickup;
+                const fallbackEnd = ((stage === 'ARRIVING' || stage === 'OTP')) ? pickup : drop;
+                setRoute([fallbackStart, fallbackEnd])
             }
         }
 
@@ -124,7 +130,7 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
     
     // Dynamic bounds based on stage
     let relevantPoints: [number, number][] = [safePickup]
-    if (stage === 'ARRIVING' && driver) {
+    if ((stage === 'ARRIVING' || stage === 'OTP') && driver) {
         relevantPoints = [driver, safePickup]
     } else if (stage === 'ON_TRIP') {
         relevantPoints = [safePickup, safeDrop]
@@ -177,15 +183,34 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                     </Tooltip>
                 </Marker>
                 
-                {/* Show drop marker always so user knows where they are going */}
-                <Marker position={safeDrop} icon={dropIcon}>
-                    <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
-                        <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/20 uppercase tracking-widest">Drop</div>
-                    </Tooltip>
-                </Marker>
+                {/* Show drop marker only during searching or on trip */}
+                {(stage === 'SEARCHING' || stage === 'ON_TRIP') && (
+                    <Marker position={safeDrop} icon={dropIcon}>
+                        <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
+                            <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/20 uppercase tracking-widest">Drop</div>
+                        </Tooltip>
+                    </Marker>
+                )}
                 
-                {/* Show driver when they are en route or on trip */}
-                {driver && <Marker position={driver} icon={driverIcon} />}
+                {/* Driver Marker with dynamically updated tooltip */}
+                {driver && (
+                    <Marker position={driver} icon={driverIcon}>
+                        {stage === 'OTP' && (
+                            <Tooltip permanent direction="top" offset={[0, -40]} className="custom-tooltip">
+                                <div className="px-4 py-2 bg-emerald-500 text-white text-[10px] font-black rounded-xl whitespace-nowrap shadow-2xl border-2 border-white uppercase tracking-widest animate-bounce">
+                                    Driver Arrived!
+                                </div>
+                            </Tooltip>
+                        )}
+                        {stage === 'ARRIVING' && (
+                            <Tooltip permanent direction="top" offset={[0, -40]} className="custom-tooltip">
+                                <div className="px-3 py-1 bg-black text-white text-[9px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/10 uppercase tracking-widest opacity-80">
+                                    En Route
+                                </div>
+                            </Tooltip>
+                        )}
+                    </Marker>
+                )}
                 
                 <ChangeView bounds={bounds} />
             </MapContainer>

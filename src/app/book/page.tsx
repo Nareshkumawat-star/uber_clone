@@ -50,6 +50,30 @@ export default function BookingPage() {
         }
     }, [pickupCoords, dropoffCoords])
 
+    // Persistence: Recover state on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('ride_draft')
+        if (saved) {
+            try {
+                const data = JSON.parse(saved)
+                if (data.pickup) setPickup(data.pickup)
+                if (data.dropoff) setDropoff(data.dropoff)
+                if (data.pickupCoords) setPickupCoords(data.pickupCoords)
+                if (data.dropoffCoords) setDropoffCoords(data.dropoffCoords)
+                if (data.selectedVehicle) setSelectedVehicle(data.selectedVehicle)
+                if (data.mobileNumber) setMobileNumber(data.mobileNumber)
+            } catch (e) {
+                console.error("Draft recovery failed", e)
+            }
+        }
+    }, [])
+
+    // Persistence: Save state on every change
+    useEffect(() => {
+        const draft = { pickup, dropoff, pickupCoords, dropoffCoords, selectedVehicle, mobileNumber }
+        localStorage.setItem('ride_draft', JSON.stringify(draft))
+    }, [pickup, dropoff, pickupCoords, dropoffCoords, selectedVehicle, mobileNumber])
+
     const getFare = (baseRate: number) => {
         if (!distance) return baseRate.toString()
         const calculated = Math.round(30 + (distance * baseRate))
@@ -185,6 +209,7 @@ export default function BookingPage() {
             ...(dLatLong && { dlat: dLatLong.lat.toString(), dlon: dLatLong.lon.toString() })
         }).toString()
 
+        localStorage.removeItem('ride_draft')
         router.push(`/book/status?${query}`)
     }
 

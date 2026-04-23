@@ -21,113 +21,144 @@ export default function PartnerDashboard() {
   const [rideRequest, setRideRequest] = useState<any>(null)
   const [currentCoords, setCurrentCoords] = useState<{ lat: number, lon: number } | null>(null)
 
-  const [rideStage, setRideStage] = useState<'EN_ROUTE' | 'ARRIVED' | 'ON_TRIP'>('EN_ROUTE')
-  const [partnerOtp, setPartnerOtp] = useState('')
-  const [expectedOtp, setExpectedOtp] = useState('')
+    const [rideStage, setRideStage] = useState<'EN_ROUTE' | 'ARRIVED' | 'ON_TRIP'>('EN_ROUTE')
+    const [partnerOtp, setPartnerOtp] = useState('')
+    const [expectedOtp, setExpectedOtp] = useState('')
 
-  useEffect(() => {
-    if (userdata?._id) {
-      axios.get('/api/partner/onboard/vechile').then(res => {
-        if (res.data?.vechile) {
-          setVehicleInfo(res.data.vechile)
+    // Persistence: Recover state on mount
+    useEffect(() => {
+        if (!userdata?._id) return;
+        const onlineStatus = localStorage.getItem(`partner_online_${userdata._id}`);
+        const savedRide = localStorage.getItem(`partner_active_ride_${userdata._id}`);
+        const savedStage = localStorage.getItem(`partner_ride_stage_${userdata._id}`);
+        const savedOtp = localStorage.getItem(`partner_expected_otp_${userdata._id}`);
+
+        if (onlineStatus === 'true') setIsOnline(true);
+        if (savedRide) setActiveRide(JSON.parse(savedRide));
+        if (savedStage) setRideStage(savedStage as any);
+        if (savedOtp) setExpectedOtp(savedOtp);
+    }, [userdata?._id])
+
+    // Persistence: Save state on changes
+    useEffect(() => {
+        if (!userdata?._id) return;
+        localStorage.setItem(`partner_online_${userdata._id}`, isOnline.toString());
+        localStorage.setItem(`partner_active_ride_${userdata._id}`, activeRide ? JSON.stringify(activeRide) : '');
+        localStorage.setItem(`partner_ride_stage_${userdata._id}`, rideStage);
+        localStorage.setItem(`partner_expected_otp_${userdata._id}`, expectedOtp);
+    }, [isOnline, activeRide, rideStage, expectedOtp, userdata?._id])
+
+    useEffect(() => {
+        if (userdata?._id) {
+            axios.get('/api/partner/onboard/vechile').then(res => {
+                if (res.data?.vechile) {
+                    setVehicleInfo(res.data.vechile)
+                }
+            })
         }
-      })
-    }
-  }, [userdata?._id])
+    }, [userdata?._id])
 
-  useEffect(() => {
-    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000')
-    setSocket(socketInstance)
+    useEffect(() => {
+        const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000')
+        setSocket(socketInstance)
 
-    socketInstance.on('new_ride_request', (data: any) => {
-      // Double check online status
-      setRideRequest(data)
-    })
+        socketInstance.on('new_ride_request', (data: any) => {
+            setRideRequest(data)
+        })
 
-    socketInstance.on('ride_accepted', (data: any) => {
-      if (data.otp) {
-        setExpectedOtp(data.otp)
-      }
-    })
+        socketInstance.on('ride_accepted', (data: any) => {
+            if (data.otp) {
+                setExpectedOtp(data.otp)
+            }
+        })
 
-    return () => {
-      socketInstance.disconnect()
-    }
-  }, [])
+        return () => {
+            socketInstance.disconnect()
+        }
+    }, [])
 
-  // Manage Room based on Online status
-  useEffect(() => {
-    if (socket && isOnline) {
-      socket.emit('join_partners')
-    }
-    // Note: We could add 'leave_partners' if needed, but disconnect handles it 
-    // and server logic could be added to leave room.
-  }, [socket, isOnline])
+    // Manage Room based on Online/Active status
+    useEffect(() => {
+        if (socket && isOnline) {
+            socket.emit('join_partners')
+            if (activeRide) {
+                socket.emit('join_ride', { rideId: activeRide.rideId })
+            }
+        }
+    }, [socket, isOnline, activeRide])
 
-  // Track and send location when online and in a ride
-  useEffect(() => {
-    if (!isOnline) return
+    // Track and send location when online and in a ride
+    useEffect(() => {
+        if (!isOnline) return
 
-    const fetchLocation = () => {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const newCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-        setCurrentCoords(newCoords)
+        const fetchLocation = () => {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const newCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+                setCurrentCoords(newCoords)
 
-        if (socket && activeRide) {
-          socket.emit('update_location', {
-            rideId: activeRide.rideId,
+                if (socket && activeRide) {
+                    socket.emit('update_location', {
+                        rideId: activeRide.rideId,
+                        partnerId: userdata?._id,
+                        location: newCoords
+                    })
+                }
+            }, (err) => console.error("Geo error:", err), { enableHighAccuracy: true })
+        }
+
+        fetchLocation() // Initial fetch
+        const interval = setInterval(fetchLocation, 3000)
+
+        return () => clearInterval(interval)
+    }, [isOnline, socket, activeRide, userdata?._id])
+
+    const acceptRide = () => {
+        if (!rideRequest || !socket) return
+
+        // Join the specific ride room to communicate with rider
+        socket.emit('join_ride', { rideId: rideRequest.rideId })
+
+        socket.emit('accept_ride', {
+            rideId: rideRequest.rideId,
             partnerId: userdata?._id,
-            location: newCoords
-          })
+            partnerLocation: currentCoords || { lat: 28.6139, lon: 77.2090 }, 
+            partnerName: userdata?.name || 'Partner',
+            partnerPhone: userdata?.mobileNumber || '9999999999',
+            vehicleModel: vehicleInfo?.vechileModel || 'Vehicle',
+            vehicleNumber: vehicleInfo?.number || 'DL 01 AB 1234'
+        })
+        setActiveRide(rideRequest)
+        setRideStage('EN_ROUTE')
+        setRideRequest(null)
+    }
+
+    const markArrived = () => {
+        setRideStage('ARRIVED')
+        socket.emit('partner_location_update', {
+            rideId: activeRide.rideId,
+            location: { lat: 0, lon: 0 }, 
+            forceArrival: true
+        })
+    }
+
+    const verifyTripOtp = () => {
+        if (partnerOtp === expectedOtp || partnerOtp === '1234') {
+            setRideStage('ON_TRIP')
+            socket.emit('start_trip', { rideId: activeRide.rideId })
+        } else {
+            alert("Invalid OTP! Check with rider.")
         }
-      }, (err) => console.error("Geo error:", err), { enableHighAccuracy: true })
     }
 
-    fetchLocation() // Initial fetch
-    const interval = setInterval(fetchLocation, 3000)
-
-    return () => clearInterval(interval)
-  }, [isOnline, socket, activeRide, userdata?._id])
-
-  const acceptRide = () => {
-    if (!rideRequest || !socket) return
-
-    // Join the specific ride room to communicate with rider
-    socket.emit('join_ride', { rideId: rideRequest.rideId })
-
-    socket.emit('accept_ride', {
-      rideId: rideRequest.rideId,
-      partnerId: userdata?._id,
-      partnerLocation: currentCoords || { lat: 28.6139, lon: 77.2090 }, // Use real coords if available
-      partnerName: userdata?.name || 'Partner',
-      partnerPhone: userdata?.mobileNumber || '9999999999',
-      vehicleModel: vehicleInfo?.vechileModel || 'Vehicle',
-      vehicleNumber: vehicleInfo?.number || 'DL 01 AB 1234'
-    })
-    setActiveRide(rideRequest)
-    setRideStage('EN_ROUTE')
-    setRideRequest(null)
-  }
-
-  const markArrived = () => {
-    setRideStage('ARRIVED')
-    // Notify rider
-    socket.emit('partner_location_update', {
-      rideId: activeRide.rideId,
-      location: { lat: 0, lon: 0 }, // Distance check in StatusContent will handle it, but we can force it
-      forceArrival: true
-    })
-  }
-
-  const verifyTripOtp = () => {
-    // In demo, we accept 1234 or the real one
-    if (partnerOtp === expectedOtp || partnerOtp === '1234') {
-      setRideStage('ON_TRIP')
-      socket.emit('start_trip', { rideId: activeRide.rideId })
-    } else {
-      alert("Invalid OTP! Check with rider.")
+    const completeTrip = () => {
+        if (!activeRide || !socket) return
+        socket.emit('trip_ended', { rideId: activeRide.rideId })
+        setActiveRide(null)
+        setRideStage('EN_ROUTE')
+        setPartnerOtp('')
+        setExpectedOtp('')
+        // Online status usually remains online after a trip
     }
-  }
 
   const openInGoogleMaps = (lat: number, lon: number) => {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`, '_blank')
@@ -309,17 +340,42 @@ export default function PartnerDashboard() {
                       <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500">Awaiting Trip OTP</h4>
                       <p className="text-[10px] font-bold text-white/40">Ask the rider for their verification code</p>
                     </div>
-                    <div className="flex justify-center">
-                      <input
-                        type="text"
-                        maxLength={4}
-                        value={partnerOtp}
-                        onChange={(e) => setPartnerOtp(e.target.value)}
-                        placeholder="Enter 4-digit OTP"
-                        className="w-full max-w-[200px] h-16 bg-white/5 border border-white/10 rounded-2xl text-center text-2xl font-black text-white focus:border-emerald-500 transition-all outline-none tracking-[0.5em]"
-                      />
+                    
+                    <div className="flex justify-center gap-3">
+                      {[0, 1, 2, 3].map((i) => (
+                        <input
+                          key={i}
+                          id={`partner-otp-${i}`}
+                          type="text"
+                          maxLength={1}
+                          value={partnerOtp[i] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.slice(-1).replace(/[^0-9]/g, '');
+                            const newOtpArray = partnerOtp.split('');
+                            newOtpArray[i] = val;
+                            const joined = newOtpArray.join('');
+                            setPartnerOtp(joined);
+                            if (val && i < 3) {
+                              document.getElementById(`partner-otp-${i + 1}`)?.focus();
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' && !partnerOtp[i] && i > 0) {
+                              document.getElementById(`partner-otp-${i - 1}`)?.focus();
+                            }
+                          }}
+                          className="w-12 h-16 bg-white/5 border border-white/10 rounded-2xl text-center text-2xl font-black text-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
+                        />
+                      ))}
                     </div>
-                    <button onClick={verifyTripOtp} className="w-full bg-emerald-500 text-white py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all">Start Trip</button>
+
+                    <button 
+                      onClick={verifyTripOtp} 
+                      disabled={partnerOtp.length !== 4}
+                      className="w-full bg-emerald-500 text-white py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 disabled:opacity-30 transition-all"
+                    >
+                      Start Trip
+                    </button>
                   </motion.div>
                 ) : (
                   <div className="grid gap-4 mt-8">
@@ -334,12 +390,20 @@ export default function PartnerDashboard() {
                       <button onClick={markArrived} className="w-full bg-white text-black py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest">I have Arrived</button>
                     )}
                     {rideStage === 'ON_TRIP' && (
-                      <div className="bg-emerald-500/10 p-6 rounded-3xl border border-emerald-500/20 flex items-center gap-4">
-                        <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white"><CheckCircle2 size={20} /></div>
-                        <div>
-                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Driving to destination</p>
-                          <p className="text-[9px] font-bold text-emerald-500/50">Follow navigation on your phone</p>
+                      <div className="space-y-4">
+                        <div className="bg-emerald-500/10 p-6 rounded-3xl border border-emerald-500/20 flex items-center gap-4">
+                          <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white"><CheckCircle2 size={20} /></div>
+                          <div>
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Driving to destination</p>
+                            <p className="text-[9px] font-bold text-emerald-500/50">Follow navigation on your phone</p>
+                          </div>
                         </div>
+                        <button 
+                          onClick={completeTrip}
+                          className="w-full py-4 bg-emerald-500 text-white rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                        >
+                          Complete Trip
+                        </button>
                       </div>
                     )}
                   </div>
