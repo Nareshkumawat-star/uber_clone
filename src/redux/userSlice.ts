@@ -5,7 +5,7 @@ interface UserData {
     name: string;
     email: string;
     role: string;
-    [key: string]: any; // Allow for other fields for now
+    [key: string]: unknown; // Allow for other fields for now
 }
 
 interface UserState {

@@ -1,46 +1,60 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap, Tooltip } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-// Fix for default marker icons in Leaflet with Next.js
-const pickupIcon = L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="width: 12px; height: 12px; background: black; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 15px rgba(0,0,0,0.2);"></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6]
-})
-
-const dropIcon = L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="width: 12px; height: 12px; background: black; border-radius: 2px; border: 3px solid white; box-shadow: 0 0 15px rgba(0,0,0,0.2); transform: rotate(45deg);"></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6]
-})
-
-const driverIcon = L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="background: black; padding: 8px; border-radius: 12px; border: 2px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.2); animation: pulse 2s infinite;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1-3-4-3-4 3-4 3H3c-1.1 0-2 .9-2 2v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></div>`,
-    iconSize: [0, 0],
-})
-
-// Component to fix Leaflet size issues
-function MapInvalidator() {
-    const map = useMap()
-    useEffect(() => {
-        setTimeout(() => {
-            map.invalidateSize()
-        }, 100)
-    }, [map])
-    return null
+// Fix for default marker icons - only run on client
+const createIcons = () => {
+    if (typeof window === 'undefined') return { pickupIcon: null, dropIcon: null, driverIcon: null };
+    
+    return {
+        pickupIcon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="width: 12px; height: 12px; background: black; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 15px rgba(0,0,0,0.2);"></div>`,
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+        }),
+        dropIcon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="width: 12px; height: 12px; background: black; border-radius: 2px; border: 3px solid white; box-shadow: 0 0 15px rgba(0,0,0,0.2); transform: rotate(45deg);"></div>`,
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+        }),
+        driverIcon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background: black; padding: 8px; border-radius: 12px; border: 2px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.2); animation: pulse 2s infinite;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1-3-4-3-4 3-4 3H3c-1.1 0-2 .9-2 2v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+        })
+    }
 }
 
-// Component to auto-fit map bounds
-function ChangeView({ bounds }: { bounds: L.LatLngBoundsExpression }) {
+// Component to fix Leaflet size issues and handle bounds
+function MapController({ bounds, center }: { bounds: L.LatLngBoundsExpression, center: [number, number] }) {
     const map = useMap()
+    
     useEffect(() => {
-        if (bounds) map.fitBounds(bounds, { padding: [50, 50] })
-    }, [bounds, map])
+        if (!map) return;
+        
+        const timer = setTimeout(() => {
+            try {
+                if (map && map.getContainer()) {
+                    map.invalidateSize()
+                    if (bounds && (bounds as any).length > 0) {
+                        map.fitBounds(bounds, { padding: [50, 50], animate: true })
+                    } else if (center) {
+                        map.setView(center, 13)
+                    }
+                }
+            } catch (e) {
+                console.warn("Map interaction warning:", e)
+            }
+        }, 300)
+
+        return () => clearTimeout(timer)
+    }, [map, bounds, center])
+
     return null
 }
 
@@ -54,188 +68,180 @@ interface RouteMapProps {
 }
 
 export default function RouteMap({ pickup, drop, driver, stage, pickupName, dropName }: RouteMapProps) {
+    const [mounted, setMounted] = useState(false)
     const [route, setRoute] = useState<[number, number][]>([])
+    const [fullTripRoute, setFullTripRoute] = useState<[number, number][]>([])
+    const icons = useMemo(() => createIcons(), [])
 
     useEffect(() => {
-        if (!pickup || !drop) return
+        setMounted(true)
+    }, [])
 
-        const fetchRoute = async () => {
+    const isLocValid = (loc?: [number, number] | null) => 
+        loc && !isNaN(loc[0]) && !isNaN(loc[1]) && loc[0] !== 0 && loc[1] !== 0;
+
+    // Effect for the "Preview/Full" route (Pickup to Drop)
+    useEffect(() => {
+        if (!mounted) return;
+        
+        if (stage === 'IDLE' || !isLocValid(pickup) || !isLocValid(drop)) {
+            setFullTripRoute([]);
+            return;
+        }
+
+        const fetchFullRoute = async () => {
+            try {
+                const fmt = (c: [number, number]) => `${c[1].toFixed(6)},${c[0].toFixed(6)}`;
+                const url = `/api/location/proxy?type=route&path=${fmt(pickup)};${fmt(drop)}`
+                
+                const response = await fetch(url)
+                const data = await response.json()
+                if (data?.routes?.[0]?.geometry) {
+                    const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]])
+                    setFullTripRoute(coords)
+                } else {
+                    setFullTripRoute([pickup, drop])
+                }
+            } catch (err) {
+                setFullTripRoute([pickup, drop])
+            }
+        }
+        fetchFullRoute()
+    }, [mounted, pickup, drop, stage])
+
+    // Effect for the "Active" route (Driver to Pickup or Driver to Drop)
+    useEffect(() => {
+        if (!mounted) return;
+
+        if (stage === 'IDLE' || stage === 'COMPLETED' || !isLocValid(pickup) || !isLocValid(drop)) {
+            setRoute([]);
+            return;
+        }
+
+        const fetchActiveRoute = async () => {
             try {
                 let start = pickup;
                 let end = drop;
 
-                // Phase-based path logic
                 if (stage === 'SEARCHING') {
                     start = pickup;
                     end = drop;
-                } else if ((stage === 'ARRIVING' || stage === 'OTP') && driver) {
-                    start = driver;
+                } else if ((stage === 'ARRIVING' || stage === 'OTP' || stage === 'ARRIVED') && isLocValid(driver)) {
+                    start = driver!;
                     end = pickup;
-                } else if (stage === 'ON_TRIP' && driver) {
-                    // Show path from driver's CURRENT position to destination
-                    start = driver;
-                    end = drop;
-                } else if (stage === 'ON_TRIP') {
-                    start = pickup;
+                } else if (stage === 'ON_TRIP' && isLocValid(driver)) {
+                    start = driver!;
                     end = drop;
                 }
 
-                if (!start || !end || start[0] === 0 || end[0] === 0) return
+                if (!isLocValid(start) || !isLocValid(end)) return;
+                
+                if (Math.abs(start![0] - end![0]) < 0.0001 && Math.abs(start![1] - end![1]) < 0.0001) {
+                    setRoute([start!, end!]);
+                    return;
+                }
 
-                // Prevent zero-length route requests
-                if (start[0] === end[0] && start[1] === end[1]) return
-
-                // Truncate to avoid URI issues and rate limit sensitivity
-                const pLat = parseFloat(start[0].toFixed(6))
-                const pLon = parseFloat(start[1].toFixed(6))
-                const dLat = parseFloat(end[0].toFixed(6))
-                const dLon = parseFloat(end[1].toFixed(6))
-
-                // Fetch route through local proxy
-                const url = `/api/location/proxy?type=route&path=${pLon},${pLat};${dLon},${dLat}`
-                await new Promise(resolve => setTimeout(resolve, 300));
-                const response = await fetch(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'application/json',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                    },
-                });
+                const fmt = (c: [number, number]) => `${c[1].toFixed(6)},${c[0].toFixed(6)}`;
+                const url = `/api/location/proxy?type=route&path=${fmt(start!)};${fmt(end!)}`
+                
+                const response = await fetch(url)
                 const data = await response.json()
                 
-                if (data && data.routes && data.routes[0] && data.routes[0].geometry) {
+                if (data?.routes?.[0]?.geometry) {
                     const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]])
-                    if (coords.length > 0) {
-                        setRoute(coords)
-                        return
-                    }
+                    setRoute(coords)
+                } else {
+                    setRoute([start!, end!])
                 }
-                
-                // Final fallback only if no data
-                setRoute([start, end])
             } catch (err) {
-                console.error("Routing error:", err)
-                // Use the calculated start/end for fallback
-                const fallbackStart = ((stage === 'ARRIVING' || stage === 'OTP') && driver) ? driver : pickup;
-                const fallbackEnd = ((stage === 'ARRIVING' || stage === 'OTP')) ? pickup : drop;
-                setRoute([fallbackStart, fallbackEnd])
+                setRoute([pickup, drop])
             }
         }
 
-        fetchRoute()
-    }, [pickup, drop, driver, stage])
+        fetchActiveRoute()
+    }, [mounted, pickup, drop, driver, stage])
 
-    const safePickup: [number, number] = (pickup && !isNaN(pickup[0]) && !isNaN(pickup[1])) ? pickup : [28.6139, 77.2090]
-    const safeDrop: [number, number] = (drop && !isNaN(drop[0]) && !isNaN(drop[1])) ? drop : [28.6139, 77.2090]
+    const safePickup: [number, number] = useMemo(() => 
+        (pickup && !isNaN(pickup[0])) ? pickup : [28.6139, 77.2090], 
+    [pickup])
+
+    const safeDrop: [number, number] = useMemo(() => 
+        (drop && !isNaN(drop[0])) ? drop : [28.6139, 77.2090], 
+    [drop])
     
-    // Dynamic bounds based on stage
-    let relevantPoints: [number, number][] = [safePickup]
-    if ((stage === 'ARRIVING' || stage === 'OTP') && driver) {
-        relevantPoints = [driver, safePickup]
-    } else if (stage === 'ON_TRIP') {
-        relevantPoints = [safePickup, safeDrop]
-        if (driver) relevantPoints.push(driver)
-    } else {
-        // Fallback for searching or other states
-        if (driver) relevantPoints.push(driver)
-        relevantPoints.push(safeDrop)
-    }
+    const relevantPoints: [number, number][] = useMemo(() => {
+        let points: [number, number][] = [safePickup, safeDrop]
+        if ((stage === 'ARRIVING' || stage === 'OTP') && isLocValid(driver)) {
+            points = [driver!, safePickup, safeDrop]
+        } else if (stage === 'ON_TRIP') {
+            points = [safePickup, safeDrop]
+            if (isLocValid(driver)) points.push(driver!)
+        } else if (stage === 'COMPLETED') {
+            points = [safeDrop]
+        }
+        return points
+    }, [safePickup, safeDrop, driver, stage])
 
-    const bounds: L.LatLngBoundsExpression = relevantPoints
+    if (!mounted) return <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[10px] uppercase font-black text-gray-400 tracking-widest">Initializing Map...</div>
 
     return (
-        <div className="w-full h-full relative" style={{ minHeight: '300px' }}>
+        <div className="w-full h-full relative overflow-hidden" style={{ minHeight: '400px' }}>
             <MapContainer 
                 center={safePickup} 
                 zoom={13} 
-                style={{ height: '100%', width: '100%', background: '#f5f5f5' }}
+                className="w-full h-full z-0"
                 zoomControl={false}
+                attributionControl={false}
             >
-                <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                />
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
                 
-                <MapInvalidator />
+                <MapController bounds={relevantPoints} center={safePickup} />
                 
+                {fullTripRoute.length > 1 && stage !== 'IDLE' && stage !== 'COMPLETED' && (
+                    <Polyline positions={fullTripRoute} color="rgba(0,0,0,0.08)" weight={8} dashArray="10, 10" />
+                )}
+
                 {route.length > 1 && (
                     <>
-                        {/* Outer Glow/Border for the route */}
-                        <Polyline 
-                            positions={route} 
-                            color="rgba(0,0,0,0.1)" 
-                            weight={10} 
-                        />
-                        {/* Main Premium Route Line */}
-                        <Polyline 
-                            positions={route} 
-                            color="black" 
-                            weight={4} 
-                            opacity={1}
-                            lineCap="round"
-                            lineJoin="round"
-                        />
+                        <Polyline positions={route} color="rgba(0,0,0,0.1)" weight={10} />
+                        <Polyline positions={route} color="black" weight={4} opacity={1} lineCap="round" lineJoin="round" />
                     </>
                 )}
                 
-                <Marker position={safePickup} icon={pickupIcon}>
-                    <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
-                        <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/20 uppercase tracking-widest">Pickup</div>
-                    </Tooltip>
-                </Marker>
-                
-                {/* Show drop marker only during searching or on trip */}
-                {(stage === 'SEARCHING' || stage === 'ON_TRIP') && (
-                    <Marker position={safeDrop} icon={dropIcon}>
-                        <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
-                            <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/20 uppercase tracking-widest">Drop</div>
+                {(stage !== 'IDLE' && stage !== 'ON_TRIP' && stage !== 'COMPLETED') && (
+                    <Marker position={safePickup} icon={icons.pickupIcon!}>
+                        <Tooltip permanent direction="top" offset={[0, -10]} className="custom-tooltip">
+                            <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg shadow-xl uppercase tracking-widest">Pickup</div>
                         </Tooltip>
                     </Marker>
                 )}
                 
-                {/* Driver Marker with dynamically updated tooltip */}
-                {driver && (
-                    <Marker position={driver} icon={driverIcon}>
-                        {stage === 'OTP' && (
-                            <Tooltip permanent direction="top" offset={[0, -40]} className="custom-tooltip">
-                                <div className="px-4 py-2 bg-emerald-500 text-white text-[10px] font-black rounded-xl whitespace-nowrap shadow-2xl border-2 border-white uppercase tracking-widest animate-bounce">
-                                    Driver Arrived!
-                                </div>
-                            </Tooltip>
-                        )}
-                        {stage === 'ARRIVING' && (
-                            <Tooltip permanent direction="top" offset={[0, -40]} className="custom-tooltip">
-                                <div className="px-3 py-1 bg-black text-white text-[9px] font-black rounded-lg whitespace-nowrap shadow-xl border border-white/10 uppercase tracking-widest opacity-80">
-                                    En Route
-                                </div>
-                            </Tooltip>
-                        )}
+                {(stage !== 'IDLE' && (stage === 'SEARCHING' || stage === 'ON_TRIP' || stage === 'COMPLETED')) && (
+                    <Marker position={safeDrop} icon={icons.dropIcon!}>
+                        <Tooltip permanent direction="top" offset={[0, -10]} className="custom-tooltip">
+                            <div className="px-3 py-1 bg-black text-white text-[10px] font-black rounded-lg shadow-xl uppercase tracking-widest">
+                                {stage === 'COMPLETED' ? 'Completed' : 'Drop'}
+                            </div>
+                        </Tooltip>
                     </Marker>
                 )}
                 
-                <ChangeView bounds={bounds} />
+                {isLocValid(driver) && stage !== 'IDLE' && stage !== 'COMPLETED' && (
+                    <Marker position={driver!} icon={icons.driverIcon!}>
+                        <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
+                            <div className={`px-3 py-1 text-white text-[9px] font-black rounded-lg shadow-xl uppercase tracking-widest ${stage === 'ARRIVED' || stage === 'OTP' ? 'bg-emerald-500 animate-bounce' : 'bg-black opacity-80'}`}>
+                                {stage === 'ARRIVED' || stage === 'OTP' ? 'Arrived' : 'Driver'}
+                            </div>
+                        </Tooltip>
+                    </Marker>
+                )}
             </MapContainer>
 
-            {/* Custom Marker styles */}
             <style jsx global>{`
-                .custom-marker {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 1000 !important;
-                }
-                .custom-tooltip {
-                    background: transparent !important;
-                    box-shadow: none !important;
-                    border: none !important;
-                    padding: 0 !important;
-                }
-                .custom-tooltip::before {
-                    display: none !important;
-                }
-                .custom-tooltip {
-                    z-index: 1000 !important;
-                }
+                .leaflet-container { background: #f8f9fa !important; }
+                .custom-tooltip { background: transparent !important; box-shadow: none !important; border: none !important; padding: 0 !important; cursor: default !important; }
+                .custom-tooltip::before { display: none !important; }
+                .leaflet-marker-icon { border: none !important; background: none !important; }
             `}</style>
         </div>
     )

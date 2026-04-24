@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-type vechiletype = "bike" | "car" | "loading" | "truck" | "auto";
+
+
 interface iPartnerdocs {
     owner: mongoose.Types.ObjectId,
     aadharUrl: string,

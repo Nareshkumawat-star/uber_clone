@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-type vechiletype = "bike" | "car" | "loading" | "truck" | "auto";
+
+
 interface iPartnerbank {
     owner: mongoose.Types.ObjectId,
     bankname: string,

@@ -12,6 +12,10 @@ interface Iuser extends Document {
     videokycrejectionreason?: string;
     onboardingStatus: "pending" | "approved" | "rejected";
     finalrejectionreason?: string;
+    ratingsCount?: number;
+    averageRating?: number;
+    totalEarnings?: number;
+    totalRides?: number;
     socketId?: string;
 }
 
@@ -60,6 +64,22 @@ const userschema = new mongoose.Schema<Iuser>({
     },
     finalrejectionreason: {
         type: String,
+    },
+    ratingsCount: {
+        type: Number,
+        default: 0
+    },
+    averageRating: {
+        type: Number,
+        default: 0
+    },
+    totalEarnings: {
+        type: Number,
+        default: 0
+    },
+    totalRides: {
+        type: Number,
+        default: 0
     },
     socketId: {
         type: String,

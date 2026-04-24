@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
-import { 
-    MapPin, Navigation, Search, ChevronLeft, LocateFixed, 
-    Bike, Car, Truck, Phone, ShieldCheck, Clock, 
+import {
+    MapPin, Navigation, Search, ChevronLeft, LocateFixed,
+    Bike, Car, Truck, Phone, ShieldCheck, Clock,
     ArrowRight, Info, CheckCircle2, ChevronRight
 } from 'lucide-react'
 
@@ -25,19 +25,19 @@ export default function BookingPage() {
     const [dropoff, setDropoff] = useState('')
     const [selectedVehicle, setSelectedVehicle] = useState<'bike' | 'auto' | 'car' | 'truck'>('bike')
     const [mobileNumber, setMobileNumber] = useState('')
-    const [pickupCoords, setPickupCoords] = useState<{lat: number, lon: number} | null>(null)
-    const [dropoffCoords, setDropoffCoords] = useState<{lat: number, lon: number} | null>(null)
+    const [pickupCoords, setPickupCoords] = useState<{ lat: number, lon: number } | null>(null)
+    const [dropoffCoords, setDropoffCoords] = useState<{ lat: number, lon: number } | null>(null)
     const [isLocating, setIsLocating] = useState(false)
     const [distance, setDistance] = useState<number | null>(null)
 
     // Haversine formula to calculate distance in KM
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371 
+        const R = 6371
         const dLat = (lat2 - lat1) * Math.PI / 180
         const dLon = (lon2 - lon1) * Math.PI / 180
-        const a = 
+        const a =
             Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2)
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
         return R * c
@@ -79,13 +79,13 @@ export default function BookingPage() {
         const calculated = Math.round(30 + (distance * baseRate))
         return calculated.toString()
     }
-    
+
     // Suggestion states
     const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([])
     const [pickupSuggestionData, setPickupSuggestionData] = useState<any[]>([])
     const [showPickupSuggestions, setShowPickupSuggestions] = useState(false)
     const [isPickupSearching, setIsPickupSearching] = useState(false)
-    
+
     const [suggestions, setSuggestions] = useState<string[]>([])
     const [suggestionData, setSuggestionData] = useState<any[]>([])
     const [showSuggestions, setShowSuggestions] = useState(false)
@@ -175,7 +175,7 @@ export default function BookingPage() {
             alert("Please fill in all details")
             return
         }
-        
+
         if (mobileNumber.length !== 10) {
             alert("Please enter a valid 10-digit confirmation mobile number")
             return
@@ -188,7 +188,7 @@ export default function BookingPage() {
             try {
                 const res = await fetch(`/api/location/proxy?type=search&q=${encodeURIComponent(text)}`)
                 if (!res.ok) return null
-                
+
                 const contentType = res.headers.get("content-type")
                 if (!contentType || !contentType.includes("application/json")) return null
 
@@ -242,8 +242,8 @@ export default function BookingPage() {
                         <div className="absolute left-[31px] top-[40px] bottom-0 w-[2px] bg-black/5 group-hover:bg-black/10 transition-colors" />
                         <div className="flex-1 relative">
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">From Pickup</label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={pickup}
                                 onChange={handlePickupChange}
                                 className="w-full bg-transparent border-none focus:ring-0 outline-none text-[13px] font-black p-0 placeholder:text-gray-200"
@@ -252,7 +252,7 @@ export default function BookingPage() {
                             {showPickupSuggestions && (
                                 <div className="absolute top-full left-0 w-full bg-white shadow-2xl border border-black/5 rounded-2xl mt-2 z-[70] overflow-hidden">
                                     {pickupSuggestions.map((s, i) => (
-                                        <button key={i} onClick={() => { setPickup(s); setPickupCoords({lat: parseFloat(pickupSuggestionData[i].lat), lon: parseFloat(pickupSuggestionData[i].lon)}); setShowPickupSuggestions(false); }} className="w-full px-5 py-4 text-left text-[11px] font-bold hover:bg-black/5 border-b border-black/5 last:border-0">{s}</button>
+                                        <button key={i} onClick={() => { setPickup(s); setPickupCoords({ lat: parseFloat(pickupSuggestionData[i].lat), lon: parseFloat(pickupSuggestionData[i].lon) }); setShowPickupSuggestions(false); }} className="w-full px-5 py-4 text-left text-[11px] font-bold hover:bg-black/5 border-b border-black/5 last:border-0">{s}</button>
                                     ))}
                                 </div>
                             )}
@@ -269,8 +269,8 @@ export default function BookingPage() {
                         <div className="w-3 h-3 bg-black ring-4 ring-black/10 rotate-45 z-10" />
                         <div className="flex-1 relative">
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">To Destination</label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={dropoff}
                                 onChange={handleDropoffChange}
                                 className="w-full bg-transparent border-none focus:ring-0 outline-none text-[13px] font-black p-0 placeholder:text-gray-200"
@@ -279,7 +279,7 @@ export default function BookingPage() {
                             {showSuggestions && (
                                 <div className="absolute top-full left-0 w-full bg-white shadow-2xl border border-black/5 rounded-2xl mt-2 z-[70] overflow-hidden">
                                     {suggestions.map((s, i) => (
-                                        <button key={i} onClick={() => { setDropoff(s); setDropoffCoords({lat: parseFloat(suggestionData[i].lat), lon: parseFloat(suggestionData[i].lon)}); setShowSuggestions(false); }} className="w-full px-5 py-4 text-left text-[11px] font-bold hover:bg-black/5 border-b border-black/5 last:border-0">{s}</button>
+                                        <button key={i} onClick={() => { setDropoff(s); setDropoffCoords({ lat: parseFloat(suggestionData[i].lat), lon: parseFloat(suggestionData[i].lon) }); setShowSuggestions(false); }} className="w-full px-5 py-4 text-left text-[11px] font-bold hover:bg-black/5 border-b border-black/5 last:border-0">{s}</button>
                                     ))}
                                 </div>
                             )}
@@ -290,20 +290,20 @@ export default function BookingPage() {
                 {/* 2. CHOOSE RIDE SECTION - Only show when distance is calculated */}
                 <AnimatePresence>
                     {distance ? (
-                        <motion.section 
+                        <motion.section
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                             className="space-y-6"
                         >
                             <div className="flex items-center justify-between">
-                                 <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Select Vehicle & Price</h2>
-                                 <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
-                                     <Clock size={12} />
-                                     <span>Estimated distance: {distance.toFixed(1)} km</span>
-                                 </div>
+                                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Select Vehicle & Price</h2>
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
+                                    <Clock size={12} />
+                                    <span>Estimated distance: {distance.toFixed(1)} km</span>
+                                </div>
                             </div>
-                            
+
                             <div className="grid grid-cols-2 gap-4">
                                 {[
                                     { id: 'bike', icon: <Bike size={24} />, name: 'Moto', base: 12, time: '2 min' },
@@ -314,11 +314,10 @@ export default function BookingPage() {
                                     <button
                                         key={v.id}
                                         onClick={() => setSelectedVehicle(v.id as any)}
-                                        className={`p-6 rounded-[2.5rem] border-2 text-left relative overflow-hidden transition-all duration-300 ${
-                                            selectedVehicle === v.id 
-                                            ? 'border-black bg-black text-white shadow-2xl scale-[1.02]' 
-                                            : 'border-gray-100 bg-white hover:border-black/10'
-                                        }`}
+                                        className={`p-6 rounded-[2.5rem] border-2 text-left relative overflow-hidden transition-all duration-300 ${selectedVehicle === v.id
+                                                ? 'border-black bg-black text-white shadow-2xl scale-[1.02]'
+                                                : 'border-gray-100 bg-white hover:border-black/10'
+                                            }`}
                                     >
                                         <div className={`${selectedVehicle === v.id ? 'text-white' : 'text-gray-400'} mb-6`}>
                                             {v.icon}
@@ -339,11 +338,11 @@ export default function BookingPage() {
                         </motion.section>
                     ) : (
                         <div className="bg-gray-50 rounded-[2.5rem] p-12 text-center border-2 border-dashed border-gray-200">
-                             <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-gray-300 mx-auto mb-6 shadow-sm">
-                                 <Navigation size={24} />
-                             </div>
-                             <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Find your destination</h3>
-                             <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mt-2 px-10">Select a location above to see available rides and pricing</p>
+                            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-gray-300 mx-auto mb-6 shadow-sm">
+                                <Navigation size={24} />
+                            </div>
+                            <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Find your destination</h3>
+                            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mt-2 px-10">Select a location above to see available rides and pricing</p>
                         </div>
                     )}
                 </AnimatePresence>
@@ -351,23 +350,23 @@ export default function BookingPage() {
                 {/* 3. MOBILE NUMBER SECTION */}
                 <section className="bg-white border border-black/5 rounded-[2.5rem] p-8 shadow-sm">
                     <div className="flex items-center gap-5">
-                         <div className="w-12 h-12 bg-black/5 rounded-2xl flex items-center justify-center text-black">
-                             <Phone size={22} />
-                         </div>
-                         <div className="flex-1">
-                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Confirmation Mobile</label>
-                             <input 
-                                 type="text" 
-                                 maxLength={10}
-                                 value={mobileNumber}
-                                 onChange={(e) => {
-                                     const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
-                                     setMobileNumber(val);
-                                 }}
-                                 placeholder="Enter for trip updates"
-                                 className="w-full text-base font-black outline-none placeholder:text-gray-200"
-                             />
-                         </div>
+                        <div className="w-12 h-12 bg-black/5 rounded-2xl flex items-center justify-center text-black">
+                            <Phone size={22} />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Confirmation Mobile</label>
+                            <input
+                                type="text"
+                                maxLength={10}
+                                value={mobileNumber}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                    setMobileNumber(val);
+                                }}
+                                placeholder="Enter for trip updates"
+                                className="w-full text-base font-black outline-none placeholder:text-gray-200"
+                            />
+                        </div>
                     </div>
                 </section>
             </main>
@@ -376,13 +375,13 @@ export default function BookingPage() {
             <AnimatePresence>
                 {distance && (
                     <div className="fixed bottom-0 left-0 w-full p-6 md:p-8 bg-gradient-to-t from-white via-white/80 to-transparent z-[60]">
-                        <motion.div 
+                        <motion.div
                             initial={{ y: 100 }}
                             animate={{ y: 0 }}
                             exit={{ y: 100 }}
                             className="max-w-2xl mx-auto"
                         >
-                            <button 
+                            <button
                                 onClick={handleContinue}
                                 className="w-full bg-black text-white py-6 rounded-[2.5rem] text-sm font-black uppercase tracking-[0.3em] shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:bg-gray-900 transition-all flex items-center justify-center gap-4 group"
                             >

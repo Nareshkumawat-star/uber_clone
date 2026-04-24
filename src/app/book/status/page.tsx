@@ -2,13 +2,14 @@
 import React, { Suspense, useState, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
-import { 
-    MapPin, Navigation, ChevronLeft, ShieldCheck, Clock, 
-    Bike, Car, Truck, Phone, Star, Info, CheckCircle2, Lock, Check 
+import axios from 'axios'
+import {
+    MapPin, Navigation, ChevronLeft, ShieldCheck, Clock,
+    Bike, Car, Truck, Phone, Star, Info, CheckCircle2, Lock, Check
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-const RouteMap = dynamic(() => import('@/components/RouteMap'), { 
+const RouteMap = dynamic(() => import('@/components/RouteMap'), {
     ssr: false,
     loading: () => <div className="w-full h-full bg-gray-50 animate-pulse flex items-center justify-center text-[10px] font-black uppercase text-gray-300">Loading Route Map...</div>
 })
@@ -32,9 +33,9 @@ import { RootState } from '@/redux/store'
 function StatusContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
-    
+
     const { userdata } = useSelector((state: RootState) => state.user)
-    
+
     const pickup = searchParams.get('pickup') || 'Pickup Point'
     const dropoff = searchParams.get('dropoff') || 'Destination'
     const vehicle = searchParams.get('vehicle') || 'bike'
@@ -63,7 +64,7 @@ function StatusContent() {
         const savedStage = localStorage.getItem(`ride_stage_${currentRideId}`);
         const savedDriver = localStorage.getItem(`ride_driver_${currentRideId}`);
         const savedPos = localStorage.getItem(`ride_pos_${currentRideId}`);
-        
+
         let initialStage: any = 'SEARCHING';
         if (savedStage) {
             initialStage = savedStage;
@@ -94,6 +95,7 @@ function StatusContent() {
         }
 
         socketInstance.on('ride_accepted', (data: any) => {
+            console.log("Ride accepted data received:", data);
             setStage('ARRIVING')
             setDriverInfo(data)
             setDriverPos([data.partnerLocation.lat, data.partnerLocation.lon])
@@ -103,7 +105,7 @@ function StatusContent() {
 
         socketInstance.on('partner_location_update', (data: any) => {
             const currentStage = stageRef.current
-            
+
             // Bypass processing if fail-safe tripEnded flag was passed
             if (data.tripEnded) {
                 setStage('COMPLETED');
@@ -119,7 +121,7 @@ function StatusContent() {
                     localStorage.setItem(`ride_stage_${currentRideId}`, 'OTP');
                     return;
                 }
-                
+
                 const dist = (data.location && data.location.lat !== 0) ? Math.sqrt(Math.pow(data.location.lat - plat, 2) + Math.pow(data.location.lon - plon, 2)) : 999;
                 if (dist < 0.001) {
                     setStage('OTP');
@@ -167,10 +169,10 @@ function StatusContent() {
                     </button>
                     <div>
                         <h1 className="text-sm font-black uppercase tracking-tight">
-                            {stage === 'SEARCHING' ? 'Finding Ride...' : 
-                             stage === 'ARRIVING' ? 'Driver Arriving' : 
-                             stage === 'OTP' ? 'Verification' : 
-                             stage === 'ON_TRIP' ? 'Trip in Progress' : 'Trip Completed'}
+                            {stage === 'SEARCHING' ? 'Finding Ride...' :
+                                stage === 'ARRIVING' ? 'Driver Arriving' :
+                                    stage === 'OTP' ? 'Verification' :
+                                        stage === 'ON_TRIP' ? 'Trip in Progress' : 'Trip Completed'}
                         </h1>
                     </div>
                 </div>
@@ -182,9 +184,9 @@ function StatusContent() {
             <main className="flex-1 flex flex-col relative">
                 {/* DYNAMIC MAP SECTION */}
                 <div className="h-[45vh] relative overflow-hidden transition-all duration-1000">
-                    <RouteMap 
-                        pickup={[plat, plon]} 
-                        drop={[dlat, dlon]} 
+                    <RouteMap
+                        pickup={[plat, plon]}
+                        drop={[dlat, dlon]}
                         driver={driverPos}
                         stage={stage}
                         pickupName={pickup}
@@ -196,10 +198,10 @@ function StatusContent() {
                 <div className="flex-1 bg-white rounded-t-[2.5rem] shadow-[0_-20px_60px_rgba(0,0,0,0.1)] p-6 -mt-10 relative z-40 space-y-6">
                     <AnimatePresence mode="wait">
                         {stage === 'SEARCHING' ? (
-                            <motion.div 
-                                key="searching" 
-                                initial={{ opacity: 0, y: 20 }} 
-                                animate={{ opacity: 1, y: 0 }} 
+                            <motion.div
+                                key="searching"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                                 className="space-y-8 py-4"
                             >
@@ -217,7 +219,7 @@ function StatusContent() {
 
                                 {/* Premium Progress Bar */}
                                 <div className="relative h-1.5 bg-black/5 rounded-full overflow-hidden">
-                                    <motion.div 
+                                    <motion.div
                                         initial={{ left: '-100%' }}
                                         animate={{ left: '100%' }}
                                         transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -234,7 +236,7 @@ function StatusContent() {
                                 </div>
                             </motion.div>
                         ) : stage === 'OTP' ? (
-                            <motion.div key="otp" initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} className="space-y-6">
+                            <motion.div key="otp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                                 <div className="text-center space-y-2">
                                     <h2 className="text-lg font-black uppercase tracking-tighter italic text-emerald-500">Driver has Arrived!</h2>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Share this OTP with {driverInfo?.partnerName || 'your driver'} to start trip</p>
@@ -260,10 +262,10 @@ function StatusContent() {
                                 </div>
                             </motion.div>
                         ) : (
-                            <motion.div key="info" initial={{ opacity:0 }} animate={{ opacity:1 }} className="space-y-6">
+                            <motion.div key="info" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                                 {stage === 'ON_TRIP' && (
-                                    <motion.div 
-                                        initial={{ y: -10, opacity: 0 }} 
+                                    <motion.div
+                                        initial={{ y: -10, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
                                         className="bg-emerald-600 p-5 rounded-[2rem] flex items-center gap-4 shadow-xl shadow-emerald-500/20"
                                     >
@@ -279,8 +281,13 @@ function StatusContent() {
                                 {/* Driver Info Card */}
                                 <div className="flex items-center justify-between bg-gray-50/50 p-6 rounded-[2.5rem] border border-black/5">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 bg-black rounded-2xl overflow-hidden shadow-lg border-2 border-white">
+                                        <div className="w-14 h-14 bg-black rounded-2xl overflow-hidden shadow-lg border-2 border-white relative">
                                             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=driver" className="w-full h-full" />
+                                            {stage === 'ARRIVING' && driverInfo?.otp && (
+                                                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border-2 border-white animate-pulse">
+                                                    OTP
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <h3 className="text-base font-black uppercase tracking-tight italic">{driverInfo?.partnerName || 'Naresh Kumar'}</h3>
@@ -293,10 +300,15 @@ function StatusContent() {
                                                 <span className="opacity-30">•</span>
                                                 <span className="text-black font-black">{driverInfo?.vehicleNumber || 'UP 93 AB 9999'}</span>
                                             </div>
+                                            {stage === 'ARRIVING' && driverInfo?.otp && (
+                                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mt-2 bg-emerald-50 w-max px-3 py-1 rounded-full border border-emerald-100 italic">
+                                                    Your OTP: {driverInfo.otp}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button 
+                                        <button
                                             onClick={() => window.open(`tel:${driverInfo?.partnerPhone || '9999999999'}`)}
                                             className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center shadow-xl">
                                             <Phone size={20} />
@@ -330,8 +342,8 @@ function StatusContent() {
                                         <h2 className="text-3xl font-black italic tracking-tighter">₹{fare} <span className="text-[11px] non-italic font-bold opacity-30">CASH</span></h2>
                                     </div>
                                     <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-xl border border-white/5">
-                                         {vehicle === 'auto' ? <AutoIcon className="w-8 h-8" /> : 
-                                         vehicle === 'bike' ? <Bike size={24} /> : <Car size={24} />}
+                                        {vehicle === 'auto' ? <AutoIcon className="w-8 h-8" /> :
+                                            vehicle === 'bike' ? <Bike size={24} /> : <Car size={24} />}
                                     </div>
                                 </div>
                             </motion.div>
@@ -343,20 +355,20 @@ function StatusContent() {
             {/* FULL SCREEN RATING MODAL POPUP */}
             <AnimatePresence>
                 {stage === 'COMPLETED' && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm p-4 pb-12"
                     >
-                        <motion.div 
-                            initial={{ scale: 0.9, y: 100 }} 
+                        <motion.div
+                            initial={{ scale: 0.9, y: 100 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.9, y: 100 }}
                             className="bg-white w-full max-w-md rounded-[3rem] p-8 space-y-8 shadow-2xl relative overflow-hidden"
                         >
                             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                            
+
                             <div className="text-center space-y-4 relative z-10">
                                 <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2 border-2 border-emerald-500/20">
                                     <CheckCircle2 size={48} className="text-emerald-500" />
@@ -370,19 +382,19 @@ function StatusContent() {
                             <div className="bg-gray-50/50 p-8 rounded-[2rem] border border-black/5 space-y-8 shadow-sm relative z-10">
                                 <div className="flex justify-center gap-3">
                                     {[1, 2, 3, 4, 5].map((star) => (
-                                        <button 
-                                            key={star} 
+                                        <button
+                                            key={star}
                                             onClick={() => setRating(star)}
                                             className="group relative transition-all duration-300"
                                         >
-                                            <Star 
-                                                size={42} 
-                                                fill={star <= rating ? "#000" : "none"} 
+                                            <Star
+                                                size={42}
+                                                fill={star <= rating ? "#000" : "none"}
                                                 strokeWidth={1.5}
-                                                className={`${star <= rating ? "text-black scale-110" : "text-gray-300"} transition-all group-active:scale-90`} 
+                                                className={`${star <= rating ? "text-black scale-110" : "text-gray-300"} transition-all group-active:scale-90`}
                                             />
                                             {star <= rating && (
-                                                <motion.div 
+                                                <motion.div
                                                     layoutId="star-glow"
                                                     className="absolute inset-0 bg-black/5 blur-xl rounded-full -z-10"
                                                 />
@@ -392,13 +404,25 @@ function StatusContent() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <button 
-                                        onClick={() => router.push('/')}
+                                    <button
+                                        onClick={async () => {
+                                            if (driverInfo?.partnerId) {
+                                                try {
+                                                    await axios.post('/api/partner/rating', {
+                                                        partnerId: driverInfo.partnerId,
+                                                        rating: rating
+                                                    });
+                                                } catch (err) {
+                                                    console.error("Failed to submit rating", err)
+                                                }
+                                            }
+                                            router.push('/')
+                                        }}
                                         className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all"
                                     >
                                         Submit Rating
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => router.push('/')}
                                         className="w-full py-4 text-black/40 hover:text-black rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
                                     >
