@@ -126,7 +126,7 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                 if (stage === 'SEARCHING') {
                     start = pickup;
                     end = drop;
-                } else if ((stage === 'ARRIVING' || stage === 'OTP' || stage === 'ARRIVED') && isLocValid(driver)) {
+                } else if ((stage === 'ARRIVING' || stage === 'OTP' || stage === 'ARRIVED' || stage === 'EN_ROUTE') && isLocValid(driver)) {
                     start = driver!;
                     end = pickup;
                 } else if (stage === 'ON_TRIP' && isLocValid(driver)) {
@@ -171,7 +171,7 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
     
     const relevantPoints: [number, number][] = useMemo(() => {
         let points: [number, number][] = [safePickup, safeDrop]
-        if ((stage === 'ARRIVING' || stage === 'OTP') && isLocValid(driver)) {
+        if ((stage === 'ARRIVING' || stage === 'OTP' || stage === 'EN_ROUTE') && isLocValid(driver)) {
             points = [driver!, safePickup, safeDrop]
         } else if (stage === 'ON_TRIP') {
             points = [safePickup, safeDrop]
@@ -229,8 +229,8 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                 {isLocValid(driver) && stage !== 'IDLE' && stage !== 'COMPLETED' && (
                     <Marker position={driver!} icon={icons.driverIcon!}>
                         <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
-                            <div className={`px-3 py-1 text-white text-[9px] font-black rounded-lg shadow-xl uppercase tracking-widest ${stage === 'ARRIVED' || stage === 'OTP' ? 'bg-emerald-500 animate-bounce' : 'bg-black opacity-80'}`}>
-                                {stage === 'ARRIVED' || stage === 'OTP' ? 'Arrived' : 'Driver'}
+                            <div className={`px-3 py-1 text-white text-[9px] font-black rounded-lg shadow-xl uppercase tracking-widest ${stage === 'ARRIVED' || stage === 'OTP' || stage === 'EN_ROUTE' ? 'bg-emerald-500 animate-bounce' : 'bg-black opacity-80'}`}>
+                                {stage === 'ARRIVED' || stage === 'OTP' ? 'Arrived' : stage === 'EN_ROUTE' ? 'En Route' : 'Driver'}
                             </div>
                         </Tooltip>
                     </Marker>

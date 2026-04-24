@@ -5,6 +5,11 @@ interface UserData {
     name: string;
     email: string;
     role: string;
+    totalEarnings?: number;
+    totalRides?: number;
+    averageRating?: number;
+    partneronbaordingsteps?: number;
+    mobileNumber?: string;
     [key: string]: unknown; // Allow for other fields for now
 }
 
