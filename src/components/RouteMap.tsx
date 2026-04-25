@@ -235,6 +235,16 @@ export default function RouteMap({ pickup, drop, driver, stage, pickupName, drop
                         </Tooltip>
                     </Marker>
                 )}
+
+                {isLocValid(driver) && stage === 'IDLE' && (
+                    <Marker position={driver!} icon={icons.driverIcon!}>
+                        <Tooltip permanent direction="top" offset={[0, -20]} className="custom-tooltip">
+                            <div className="px-3 py-1 bg-black text-white border border-white/20 text-[9px] font-black rounded-lg shadow-2xl uppercase tracking-widest animate-pulse">
+                                You are here
+                            </div>
+                        </Tooltip>
+                    </Marker>
+                )}
             </MapContainer>
 
             <style jsx global>{`
