@@ -58,6 +58,8 @@ export default function PartnerDashboard() {
     }
   }, [rideRequest])
 
+  const isLoadedRef = React.useRef(false)
+
   // Persistence: Recover state on mount
   useEffect(() => {
     if (!userdata?._id) return;
@@ -70,11 +72,13 @@ export default function PartnerDashboard() {
     if (savedRide) setActiveRide(JSON.parse(savedRide));
     if (savedStage) setRideStage(savedStage as any);
     if (savedOtp) setExpectedOtp(savedOtp);
+    
+    isLoadedRef.current = true
   }, [userdata?._id])
 
   // Persistence: Save state on changes
   useEffect(() => {
-    if (!userdata?._id) return;
+    if (!userdata?._id || !isLoadedRef.current) return;
     localStorage.setItem(`partner_online_${userdata._id}`, isOnline.toString());
     localStorage.setItem(`partner_active_ride_${userdata._id}`, activeRide ? JSON.stringify(activeRide) : '');
     localStorage.setItem(`partner_ride_stage_${userdata._id}`, rideStage);
@@ -95,7 +99,11 @@ export default function PartnerDashboard() {
     const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000')
     setSocket(socketInstance)
 
+    // Join partners room immediately to receive ride requests
+    socketInstance.emit('join_partners')
+
     socketInstance.on('new_ride_request', (data: any) => {
+      console.log('Partner received new ride request:', data)
       if (activeRideRef.current !== null && activeRideRef.current !== undefined) {
         return; // Suppress notification if driver is actively engaged in a ride
       }
@@ -121,9 +129,12 @@ export default function PartnerDashboard() {
   }, [])
 
   // Manage Room based on Online/Active status
+  // Manage room based on online status (join specific ride if needed)
   useEffect(() => {
-    if (socket && isOnline) {
-      socket.emit('join_partners')
+    if (socket) {
+      if (isOnline) {
+        socket.emit('join_partners')
+      }
       if (activeRide) {
         socket.emit('join_ride', { rideId: activeRide.rideId })
       }
@@ -227,6 +238,19 @@ export default function PartnerDashboard() {
     setPartnerOtp('')
     setExpectedOtp('')
     // Online status usually remains online after a trip
+  }
+
+  const cancelRide = () => {
+    if (!activeRide || !socket) return
+    socket.emit('cancel_ride', { rideId: activeRide.rideId })
+    setActiveRide(null)
+    setRideStage('EN_ROUTE')
+    setRideRequest(null)
+    setPartnerOtp('')
+    setExpectedOtp('')
+    localStorage.removeItem(`partner_active_ride_${userdata._id}`)
+    localStorage.removeItem(`partner_ride_stage_${userdata._id}`)
+    localStorage.removeItem(`partner_expected_otp_${userdata._id}`)
   }
 
   const openInGoogleMaps = (lat: number, lon: number) => {
@@ -551,7 +575,10 @@ export default function PartnerDashboard() {
                     </div>
 
                     {rideStage === 'EN_ROUTE' && (
-                      <button onClick={markArrived} className="w-full bg-white text-black py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-xl">I have Arrived</button>
+                      <div className="space-y-3">
+                        <button onClick={markArrived} className="w-full bg-white text-black py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-xl">I have Arrived</button>
+                        <button onClick={cancelRide} className="w-full py-4 bg-red-500/10 text-red-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all">Cancel Ride</button>
+                      </div>
                     )}
                     {rideStage === 'ON_TRIP' && (
                       <button

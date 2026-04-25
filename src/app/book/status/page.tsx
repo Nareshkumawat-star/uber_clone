@@ -48,6 +48,7 @@ function StatusContent() {
     const currentRideId = `ride_${plat}_${dlat}`
 
     const [stage, _setStage] = useState<'SEARCHING' | 'ARRIVING' | 'OTP' | 'ON_TRIP' | 'COMPLETED'>('SEARCHING')
+  const [requestSent, setRequestSent] = useState(false)
     const stageRef = useRef(stage)
     const setStage = (s: any) => {
         stageRef.current = s
@@ -77,10 +78,34 @@ function StatusContent() {
         const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000')
         setSocket(socketInstance)
 
+        // 2. Emit ride request after socket connects (ensures request is sent)
+        socketInstance.on('connect', () => {
+            if (initialStage === 'SEARCHING') {
+                socketInstance.emit('request_ride', {
+                    rideId: currentRideId,
+                    pickup,
+                    dropoff,
+                    fare,
+                    vehicleType: vehicle,
+                    location: { lat: plat, lon: plon },
+                    destination: { lat: dlat, lon: dlon },
+                    riderName: userdata?.name || 'Passenger',
+                    riderPhone: userdata?.mobileNumber || 'XXXXXXXXXX'
+                })
+                setRequestSent(true)
+            }
+        })
+
+        // Listen for confirmation that request was sent (optional debug)
+        socketInstance.on('request_ride_ack', (data) => {
+            console.log('Rider request ack received:', data)
+        })
+
+        // Keep other listeners unchanged
         socketInstance.emit('join_ride', { rideId: currentRideId })
 
-        // 2. Only request ride if we are starting fresh in SEARCHING stage
-        if (initialStage === 'SEARCHING') {
+        // 3. Only request ride if we are starting fresh in SEARCHING stage (fallback for older logic)
+        if (initialStage === 'SEARCHING' && !requestSent) {
             socketInstance.emit('request_ride', {
                 rideId: currentRideId,
                 pickup,
@@ -92,6 +117,7 @@ function StatusContent() {
                 riderName: userdata?.name || 'Passenger',
                 riderPhone: userdata?.mobileNumber || 'XXXXXXXXXX'
             })
+            setRequestSent(true)
         }
 
         socketInstance.on('ride_accepted', (data: any) => {
@@ -146,10 +172,58 @@ function StatusContent() {
             localStorage.setItem(`ride_stage_${currentRideId}`, 'COMPLETED');
         })
 
+        socketInstance.on('ride_cancelled', () => {
+            alert("The partner has cancelled the ride. Finding a new driver...");
+            setStage('SEARCHING');
+            setDriverInfo(null);
+            setRequestSent(false); // allow re-requesting
+            localStorage.removeItem(`ride_stage_${currentRideId}`);
+            localStorage.removeItem(`ride_driver_${currentRideId}`);
+            localStorage.removeItem(`ride_pos_${currentRideId}`);
+        })
+
         return () => {
             socketInstance.disconnect()
         }
-    }, [plat, plon, pickup, dropoff])
+    }, [plat, plon, pickup, dropoff, userdata])
+
+    // 4. Emit ride request when in SEARCHING stage and not yet sent
+    useEffect(() => {
+        if (stage !== 'SEARCHING' || !socket || requestSent) return;
+        socket.emit('request_ride', {
+            rideId: currentRideId,
+            pickup,
+            dropoff,
+            fare,
+            vehicleType: vehicle,
+            location: { lat: plat, lon: plon },
+            destination: { lat: dlat, lon: dlon },
+            riderName: userdata?.name || 'Passenger',
+            riderPhone: userdata?.mobileNumber || 'XXXXXXXXXX'
+        });
+        setRequestSent(true);
+    }, [stage, socket, requestSent, currentRideId, pickup, dropoff, fare, vehicle, plat, plon, dlat, dlon, userdata])
+
+    // 3. Periodic re-emission of ride request if still searching
+    useEffect(() => {
+        if (stage !== 'SEARCHING' || !socket) return;
+
+        const interval = setInterval(() => {
+            socket.emit('request_ride', {
+                rideId: currentRideId,
+                pickup,
+                dropoff,
+                fare,
+                vehicleType: vehicle,
+                location: { lat: plat, lon: plon },
+                destination: { lat: dlat, lon: dlon },
+                riderName: userdata?.name || 'Passenger',
+                riderPhone: userdata?.mobileNumber || 'XXXXXXXXXX'
+            });
+        }, 8000); // Pulse every 8 seconds
+
+        return () => clearInterval(interval);
+    }, [stage, socket, currentRideId, pickup, dropoff, fare, vehicle, plat, plon, dlat, dlon, userdata])
 
     const handleOtpSubmit = () => {
         if (otp === '1234') {
