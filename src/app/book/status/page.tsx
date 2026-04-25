@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'motion/react'
 import axios from 'axios'
 import {
     MapPin, Navigation, ChevronLeft, ShieldCheck, Clock,
-    Bike, Car, Truck, Phone, Star, Info, CheckCircle2, Lock, Check
+    Bike, Car, Truck, Phone, Star, Info, CheckCircle2, Lock, Check,
+    MessageSquare, Send
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -60,6 +61,11 @@ function StatusContent() {
     const [rating, setRating] = useState(0)
     const [socket, setSocket] = useState<any>(null)
 
+    const [messages, setMessages] = useState<{message: string, sender: 'me' | 'them', timestamp: Date}[]>([])
+    const [newMessage, setNewMessage] = useState("")
+    const [isAcknowledged, setIsAcknowledged] = useState(false)
+    const [showCancelPopup, setShowCancelPopup] = useState(false)
+
     useEffect(() => {
         // 1. Recover state immediately on mount
         const savedStage = localStorage.getItem(`ride_stage_${currentRideId}`);
@@ -96,9 +102,10 @@ function StatusContent() {
             }
         })
 
-        // Listen for confirmation that request was sent (optional debug)
+        // Listen for confirmation that request was sent
         socketInstance.on('request_ride_ack', (data) => {
             console.log('Rider request ack received:', data)
+            setIsAcknowledged(true)
         })
 
         // Keep other listeners unchanged
@@ -173,13 +180,19 @@ function StatusContent() {
         })
 
         socketInstance.on('ride_cancelled', () => {
-            alert("The partner has cancelled the ride. Finding a new driver...");
+            setShowCancelPopup(true);
             setStage('SEARCHING');
             setDriverInfo(null);
             setRequestSent(false); // allow re-requesting
             localStorage.removeItem(`ride_stage_${currentRideId}`);
             localStorage.removeItem(`ride_driver_${currentRideId}`);
             localStorage.removeItem(`ride_pos_${currentRideId}`);
+        })
+
+        socketInstance.on('receive_message', (data: any) => {
+            if (data.sender !== 'rider') {
+                setMessages(prev => [...prev, { message: data.message, sender: 'them', timestamp: new Date(data.timestamp) }])
+            }
         })
 
         return () => {
@@ -289,6 +302,14 @@ function StatusContent() {
                                     </div>
                                     <h2 className="text-xl font-black uppercase tracking-tighter italic">Finding your driver</h2>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Contacting nearby {vehicle} partners...</p>
+                                    
+                                    {isAcknowledged && (
+                                        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="flex justify-center mt-2">
+                                            <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+                                                <CheckCircle2 size={12}/> Request Delivered
+                                            </p>
+                                        </motion.div>
+                                    )}
                                 </div>
 
                                 {/* Premium Progress Bar */}
@@ -384,11 +405,77 @@ function StatusContent() {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => window.open(`tel:${driverInfo?.partnerPhone || '9999999999'}`)}
-                                            className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center shadow-xl">
+                                            className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center shadow-xl flex-shrink-0">
                                             <Phone size={20} />
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Chat Section */}
+                                {(stage === 'ARRIVING' || stage === 'ON_TRIP') && (
+                                    <div className="bg-white border border-black/5 rounded-[2.5rem] p-5 space-y-4 shadow-sm min-w-0">
+                                        <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2 mb-2">
+                                            <MessageSquare size={12} /> Message Driver
+                                        </h3>
+                                        <div className="h-32 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+                                            {messages.length === 0 ? (
+                                                <div className="h-full flex items-center justify-center text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                                                    No messages yet
+                                                </div>
+                                            ) : (
+                                                messages.map((msg, idx) => (
+                                                    <div key={idx} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
+                                                        <div className={`px-4 py-2 rounded-2xl max-w-[80%] ${msg.sender === 'me' ? 'bg-black text-white rounded-tr-sm' : 'bg-gray-100 text-black rounded-tl-sm'}`}>
+                                                            <p className="text-xs font-medium">{msg.message}</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                            {["I'm waiting outside.", "Where are you?", "Please come fast.", "At the exact pin."].map((preset, i) => (
+                                                <button 
+                                                    key={i}
+                                                    onClick={() => {
+                                                        socket.emit('send_message', { rideId: currentRideId, message: preset, sender: 'rider' })
+                                                        setMessages(prev => [...prev, { message: preset, sender: 'me', timestamp: new Date() }])
+                                                    }}
+                                                    className="whitespace-nowrap px-3 py-1.5 bg-gray-50 border border-black/5 rounded-full text-[10px] font-bold text-gray-500 hover:bg-black/5 hover:text-black transition-all active:scale-95"
+                                                >
+                                                    {preset}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2 relative">
+                                            <input 
+                                                type="text" 
+                                                value={newMessage}
+                                                onChange={(e) => setNewMessage(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && newMessage.trim()) {
+                                                        socket.emit('send_message', { rideId: currentRideId, message: newMessage, sender: 'rider' })
+                                                        setMessages(prev => [...prev, { message: newMessage, sender: 'me', timestamp: new Date() }])
+                                                        setNewMessage("")
+                                                    }
+                                                }}
+                                                placeholder="Type a message..."
+                                                className="flex-1 bg-gray-50 border border-black/5 rounded-full px-5 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/5 min-w-0"
+                                            />
+                                            <button 
+                                                onClick={() => {
+                                                    if(newMessage.trim()){
+                                                        socket.emit('send_message', { rideId: currentRideId, message: newMessage, sender: 'rider' })
+                                                        setMessages(prev => [...prev, { message: newMessage, sender: 'me', timestamp: new Date() }])
+                                                        setNewMessage("")
+                                                    }
+                                                }}
+                                                className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center active:scale-95 transition-all flex-shrink-0"
+                                            >
+                                                <Send size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Trip Progress Indicator */}
                                 <div className="bg-white border border-black/5 p-6 rounded-[2.5rem] space-y-5">
@@ -504,6 +591,46 @@ function StatusContent() {
                                     </button>
                                 </div>
                             </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* CUSTOM CANCEL POPUP */}
+            <AnimatePresence>
+                {showCancelPopup && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 50 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 50 }}
+                            className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative overflow-hidden"
+                        >
+                            <div className="absolute top-0 left-0 w-32 h-32 bg-red-500/10 rounded-full blur-2xl -translate-y-1/2 -translate-x-1/2" />
+                            
+                            <div className="text-center relative z-10 space-y-4">
+                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto border border-red-100">
+                                    <Info size={32} className="text-red-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black uppercase tracking-tighter italic">Ride Cancelled</h2>
+                                    <p className="text-[11px] font-bold text-gray-500 mt-2 leading-relaxed px-4">
+                                        The partner had to cancel this trip. Don't worry, we are looking for a new driver for you!
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setShowCancelPopup(false)}
+                                className="w-full py-4 bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all shadow-xl"
+                            >
+                                Continue Searching
+                            </button>
                         </motion.div>
                     </motion.div>
                 )}

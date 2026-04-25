@@ -8,7 +8,8 @@ import { io } from 'socket.io-client'
 import {
   LayoutDashboard, Car, FileText, Landmark, Settings,
   LogOut, ChevronRight, Bell, User, Navigation,
-  MapPin, ExternalLink, ShieldCheck, CheckCircle2
+  MapPin, ExternalLink, ShieldCheck, CheckCircle2,
+  MessageSquare, Send, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import axios from 'axios'
@@ -33,6 +34,10 @@ export default function PartnerDashboard() {
   const [rideStage, setRideStage] = useState<'EN_ROUTE' | 'ARRIVED' | 'ON_TRIP'>('EN_ROUTE')
   const [partnerOtp, setPartnerOtp] = useState('')
   const [expectedOtp, setExpectedOtp] = useState('')
+  const [isRideSheetMinimized, setIsRideSheetMinimized] = useState(false)
+
+  const [messages, setMessages] = useState<{message: string, sender: 'me' | 'them', timestamp: Date}[]>([])
+  const [newMessage, setNewMessage] = useState("")
 
   const activeRideRef = React.useRef(activeRide)
   useEffect(() => {
@@ -121,6 +126,13 @@ export default function PartnerDashboard() {
       setRideStage('EN_ROUTE');
       setPartnerOtp('');
       setExpectedOtp('');
+      setMessages([]);
+    })
+
+    socketInstance.on('receive_message', (data: any) => {
+      if (data.sender !== 'partner') {
+        setMessages(prev => [...prev, { message: data.message, sender: 'them', timestamp: new Date(data.timestamp) }])
+      }
     })
 
     return () => {
@@ -237,6 +249,7 @@ export default function PartnerDashboard() {
     setRideStage('EN_ROUTE')
     setPartnerOtp('')
     setExpectedOtp('')
+    setMessages([])
     // Online status usually remains online after a trip
   }
 
@@ -248,6 +261,7 @@ export default function PartnerDashboard() {
     setRideRequest(null)
     setPartnerOtp('')
     setExpectedOtp('')
+    setMessages([])
     localStorage.removeItem(`partner_active_ride_${userdata._id}`)
     localStorage.removeItem(`partner_ride_stage_${userdata._id}`)
     localStorage.removeItem(`partner_expected_otp_${userdata._id}`)
@@ -480,9 +494,26 @@ export default function PartnerDashboard() {
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-lg bg-black text-white p-6 md:p-8 rounded-[3rem] shadow-2xl z-[100] border border-white/10 pointer-events-auto"
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-lg bg-black text-white p-6 md:p-8 rounded-[3rem] shadow-2xl z-[100] border border-white/10 pointer-events-auto transition-all duration-300"
             >
+              {isRideSheetMinimized ? (
+                  <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsRideSheetMinimized(false)}>
+                      <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${rideStage === 'ON_TRIP' ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+                            <Car size={24} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-0.5">Tap to Expand</p>
+                            <h3 className="text-sm font-bold">{activeRide.riderName || 'Passenger'} • {rideStage.replace('_', ' ')}</h3>
+                          </div>
+                      </div>
+                      <ChevronUp size={24} className="text-white/30" />
+                  </div>
+              ) : (
               <div className="space-y-6">
+                <div className="w-full flex justify-center -mt-2 mb-2">
+                    <div className="w-12 h-1.5 bg-white/20 rounded-full cursor-pointer hover:bg-white/40 transition-colors" onClick={() => setIsRideSheetMinimized(true)} />
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${rideStage === 'ON_TRIP' ? 'bg-emerald-500' : 'bg-blue-500'}`}>
@@ -568,10 +599,74 @@ export default function PartnerDashboard() {
                       </div>
                       <button
                         onClick={() => window.open(`tel:${activeRide.riderPhone || '9999999999'}`)}
-                        className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
+                        className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex-shrink-0"
                       >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
                       </button>
+                    </div>
+
+                    {/* Chat Section */}
+                    <div className="bg-white/5 border border-white/10 rounded-[2.5rem] p-4 md:p-6 space-y-4 shadow-sm min-w-0">
+                        <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest flex items-center gap-2 mb-2">
+                            <MessageSquare size={12} /> Message Rider
+                        </h3>
+                        <div className="h-28 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+                            {messages.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                                    No messages yet
+                                </div>
+                            ) : (
+                                messages.map((msg, idx) => (
+                                    <div key={idx} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`px-4 py-2 rounded-2xl max-w-[80%] ${msg.sender === 'me' ? 'bg-emerald-500 text-white rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm'}`}>
+                                            <p className="text-xs font-medium">{msg.message}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            {["I have arrived.", "I'm on the way.", "Stuck in traffic.", "Please come to the pickup point."].map((preset, i) => (
+                                <button 
+                                    key={i}
+                                    onClick={() => {
+                                        socket.emit('send_message', { rideId: activeRide.rideId, message: preset, sender: 'partner' })
+                                        setMessages(prev => [...prev, { message: preset, sender: 'me', timestamp: new Date() }])
+                                    }}
+                                    className="whitespace-nowrap px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/50 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+                                >
+                                    {preset}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-2 relative">
+                            <input 
+                                type="text" 
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && newMessage.trim()) {
+                                        socket.emit('send_message', { rideId: activeRide.rideId, message: newMessage, sender: 'partner' })
+                                        setMessages(prev => [...prev, { message: newMessage, sender: 'me', timestamp: new Date() }])
+                                        setNewMessage("")
+                                    }
+                                }}
+                                placeholder="Type a message..."
+                                className="flex-1 bg-white/5 border border-white/10 rounded-full px-5 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-white placeholder-white/30 min-w-0"
+                            />
+                            <button 
+                                onClick={() => {
+                                    if(newMessage.trim()){
+                                        socket.emit('send_message', { rideId: activeRide.rideId, message: newMessage, sender: 'partner' })
+                                        setMessages(prev => [...prev, { message: newMessage, sender: 'me', timestamp: new Date() }])
+                                        setNewMessage("")
+                                    }
+                                }}
+                                className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center active:scale-95 transition-all flex-shrink-0"
+                            >
+                                <Send size={14} />
+                            </button>
+                        </div>
                     </div>
 
                     {rideStage === 'EN_ROUTE' && (
@@ -591,6 +686,7 @@ export default function PartnerDashboard() {
                   </div>
                 )}
               </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
