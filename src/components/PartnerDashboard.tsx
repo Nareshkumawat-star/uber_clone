@@ -41,6 +41,12 @@ function PartnerDashboard() {
             }
 
             const currentStep = userdata.partneronbaordingsteps || 0;
+
+            if (currentStep >= 8) {
+                router.push('/partner/dashboard');
+                return;
+            }
+
             setactivesteps(currentStep)
 
             // Check if review was rejected (at step 3)
