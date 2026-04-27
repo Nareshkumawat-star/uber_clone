@@ -246,6 +246,18 @@ function StatusContent() {
         }
     }
 
+    const handleCancelRide = () => {
+        if (!socket) return;
+        socket.emit('cancel_ride', { rideId: currentRideId, source: 'rider' });
+        
+        localStorage.removeItem('current_ride_id');
+        localStorage.removeItem(`ride_stage_${currentRideId}`);
+        localStorage.removeItem(`ride_driver_${currentRideId}`);
+        localStorage.removeItem(`ride_pos_${currentRideId}`);
+        
+        router.back();
+    }
+
     return (
         <div className="min-h-screen bg-[#FDFDFD] font-sans text-black overflow-hidden flex flex-col">
             {/* Header */}
@@ -354,6 +366,12 @@ function StatusContent() {
                                             Verified Safety Shield Active
                                         </p>
                                     </div>
+                                    <button 
+                                        onClick={handleCancelRide}
+                                        className="w-full bg-red-50 text-red-500 border border-red-100 p-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        Cancel Ride
+                                    </button>
                                 </div>
                             </motion.div>
                         ) : (
